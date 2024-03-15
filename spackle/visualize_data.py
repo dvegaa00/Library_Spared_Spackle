@@ -1,6 +1,5 @@
 import anndata as ad
 import numpy as np
-# FIXME: merge get_metrics functions from metrics.py and metrics_ids
 from spared.metrics import get_metrics
 import matplotlib
 import matplotlib.pyplot as plt
@@ -38,11 +37,10 @@ def plot_pred_image(adata: ad.AnnData, n_genes: int = 3, slide = "", save_path="
     assert not (gt_layer is None), 'groundtruth layer not present in the adata'
 
     # Get detailed metrics from partition 
-    #for p in pred_layer:
     name_model = pred_layer.split(',')[2]
     detailed_metrics = get_metrics(
         gt_mat = adata.to_df(layer=gt_layer).values, 
-        pred_mat = adata.to_df(layer=p).values,
+        pred_mat = adata.to_df(layer=pred_layer).values,
         mask = adata.to_df(layer="random_mask").values,
         detailed=True
     ) 
