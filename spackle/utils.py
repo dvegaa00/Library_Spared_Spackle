@@ -217,7 +217,7 @@ def mask_exp_matrix(adata: ad.AnnData, pred_layer: str, mask_prob_tensor: torch.
 
     return adata
 
-def get_mean_performance(complete_imputation_function, n_assays: int, model, trainer, best_model_path: str, args: argparse, prob_tensor: torch.Tensor, device: torch.device, train_split: ad.AnnData, val_split: ad.AnnData, test_split: ad.AnnData = None) -> dict:
+def get_mean_performance(complete_imputation_function, n_assays: int, model, trainer, best_model_path: str, prob_tensor: torch.Tensor, device: torch.device, batch_size: int, num_workers: int, prediction_layer: str, train_split: ad.AnnData, val_split: ad.AnnData, test_split: ad.AnnData = None) -> dict:
     """
     This function receives the data before being imputed and performs n_assays experiments imputing through both methods. 
     Each experiment uses a different random mask and the results are used to obtain more accurate metrics and calculate 
@@ -276,9 +276,11 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
                                 model = model, 
                                 trainer = trainer, 
                                 best_model_path = best_model_path, 
-                                args = args,
                                 prob_tensor = prob_tensor, 
                                 device = device, 
+                                batch_size = batch_size, 
+                                num_workers = num_workers,
+                                prediction_layer = prediction_layer,
                                 train_split = train_split, 
                                 val_split = val_split, 
                                 test_split = test_split
