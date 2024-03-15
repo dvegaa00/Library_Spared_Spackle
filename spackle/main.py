@@ -110,6 +110,25 @@ def initialize_model(
 
     return model
 
+def initialize_trainer(
+    max_steps,
+    val_check_interval,
+    checkpoint_callback
+):
+    trainer = Trainer(
+    max_steps=max_steps,
+    val_check_interval=val_check_interval,
+    log_every_n_steps=val_check_interval,
+    check_val_every_n_epoch=None,
+    devices=1,
+    callbacks=[checkpoint_callback],
+    enable_progress_bar=True,
+    enable_model_summary=True,
+    )
+    
+    return trainer
+    
+
 def train_completion_model(
         save_results_path, 
         train_split, 
@@ -183,15 +202,10 @@ def train_completion_model(
 
     # Define the pytorch lightning trainer
     # TODO: crear función independiente que haga el trainer y lo devuelva para llamarla acá
-    trainer = Trainer(
+    trainer = initialize_trainer(
         max_steps=max_steps,
         val_check_interval=val_check_interval,
-        log_every_n_steps=val_check_interval,
-        check_val_every_n_epoch=None,
-        devices=1,
-        callbacks=[checkpoint_callback],
-        enable_progress_bar=True,
-        enable_model_summary=True,
+        checkpoint_callback=checkpoint_callback
     )
     
     # Train the model
@@ -219,7 +233,10 @@ def test_completion_model(
         scale_factor = 0.8,
         device = 'cuda',
         num_workers = 0,
-        batch_size = 256):
+        batch_size = 256,
+        optim_metric = 'MSE',
+        val_check_interval = 10, 
+        max_steps = 10000):
     
     # Select split for testing
     test_split = test_split if test_split != None else val_split
@@ -235,9 +252,17 @@ def test_completion_model(
 
     # Load the checkpoints that will be tested
     best_model_path = ckpt_path
+    
+    #Create a checkpoint_callback variable
+    checkpoint_callback = ModelCheckpoint(
+    dirpath=save_results_path)
 
-    # TODO: llamas función de trainer y pasarle model
-    trainer = None
+    # Llamar función de trainer y pasarle model
+    trainer = initialize_trainer(
+        max_steps=max_steps,
+        val_check_interval=val_check_interval,
+        checkpoint_callback=checkpoint_callback
+    )
     
     # Test median imposition and trained/loaded model on the same masked data
     # TODO: modificar get_mean_perfomance 
