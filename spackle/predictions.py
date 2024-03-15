@@ -80,11 +80,6 @@ def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p
         mask_df = pd.DataFrame(mask_matrix, index=glob_ids, columns=adata.var_names)
         mask_df = mask_df.reindex(adata.obs.index)
 
-        # Log predictions in wandb
-        #wandb_df = pred_df.reset_index(names='sample')
-        #wandb.init()
-        #wandb.log({'predictions': wandb.Table(dataframe=wandb_df)})
-
         # Add layer to adata
         adata.layers[f'predictions,{layer},{method}'] = pred_df
         adata.layers["masked_map"] = mask_df

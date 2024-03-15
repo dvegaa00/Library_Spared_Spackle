@@ -478,9 +478,9 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
 
         return final_metrics
     
-    stats_per_split = {'train':{'median':{}, 'model':{}},
-                       'val':{'median':{}, 'model':{}},
-                       'test':{'median':{}, 'model':{}}}
+    stats_per_split = {'train':{'completion_model':{}},
+                       'val':{'completion_model':{}},
+                       'test':{'completion_model':{}}}
     
     # Test both imputation methods in n_assays random masking problems of all data splits
     for i in range(n_assays):
@@ -514,72 +514,6 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
     final_metrics = calculate_final_stats(stats_per_split)
 
     return final_metrics, train_split, val_split, test_split 
-
-def log_metrics_tables(mean_performance_dict: dict, wandb_logger, n_assays):
-    """
-    This function creates a table from the dictionary that contains the mean performance of the imputation in each data split
-    and logs it in WandB. It creates one table per data split, each with the metrics of both imputation methods.
-
-    Args:
-        mean_performance_dict (dict): four level nested dictionary with the mean and std dev of each metric for both imputation methods in all data splits available.
-        wandb_logger (__type__): WandB logger to upload the tables.
-        n_assays (int): number of experiments considered to test the model's performance
-    """
-    # For each data split prepare dataframe to log mean performance metrics
-    for split_name, split_dict in mean_performance_dict.items():
-        rows = []
-        for method_name, method_dict in split_dict.items():
-            for metric_name, metric_dict in method_dict.items():
-                row = {
-                    'Method': method_name,
-                    'Metric': metric_name,
-                    'Mean': metric_dict['mean'],
-                    'Std dev': metric_dict['std_dev']
-                }
-                rows.append(row)
-
-        # Create a DataFrame
-        df = pd.DataFrame(rows)
-        # Log table
-        wandb_logger.log_table(key=f'Performance for {n_assays} experiments in {split_name} data', dataframe=df)   
-        
-def log_mean_test_metrics(mean_performance_dict: dict, wandb_logger, test_data_available):
-    """
-    This function creates a table from the dictionary that contains the mean performance of the imputation in each data split
-    and logs it in WandB. It creates one table per data split, each with the metrics of both imputation methods.
-
-    Args:
-        mean_performance_dict (dict): four level nested dictionary with the mean and std dev of each metric for both imputation methods in all data splits available.
-        wandb_logger (__type__): WandB logger to upload the tables.
-        n_assays (int): number of experiments considered to test the model's performance
-    """
-    # Select split to report final test results
-    test_results = mean_performance_dict['test'] if test_data_available else mean_performance_dict['val']
-    # Create dictionary with only the mean value of each metric in the imputation model
-    final_metrics = {f'mean_model_{k}': v['mean'] for k, v in test_results['model'].items()}
-    wandb_logger.log_metrics(final_metrics)
-
-def get_img_encoder_ckpts(dataset: str, args, optimal_models_directory_path: str = '/media/SSD4/gmmejia/SEPAL/optimal_models') -> str:
-    """
-    This function looks for an existing checkpoints path that corresponds to the dataset being processed and the 
-    image encoder backbone being used to extract the most optimal visual features of the ST patches.
-
-    Args:
-        dataset (str): dataset for which the trained model is being searched.
-        optimal_models_directory_path (str): path to all the optimal models weights.
-        args (argparse): parser with the values necessary for data processing.
-
-    Returns:
-        path (str): final path to the model weights needed to ensamble the image encoder.
-    """
-    backbone_variation = f'spared_{args.img_backbone.lower()}_backbone_{args.prediction_layer}'
-    path = os.path.join(optimal_models_directory_path, backbone_variation, dataset, '**', '*.ckpt')
-    path = glob.glob(path, recursive=True)
-    if len(path) == 0: 
-        print(f'No valid model weights found in {optimal_models_directory_path}/{backbone_variation} for {dataset}.')
-
-    path = path[0] if len(path) > 0 else "None"
-    return path
 
 ### Function to get expression deltas from the mean expression of a gene expression matrix
 def get_deltas(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:

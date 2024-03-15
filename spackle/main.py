@@ -1,55 +1,16 @@
 import os
 os.environ['USE_PYGEOS'] = '0' # To supress a warning from geopandas
 import json
-import torch
-import anndata as ad
 from utils import *
-from datetime import datetime
 from spared.datasets import get_dataset
 from model import GeneImputationModel
-from lightning.pytorch import Trainer, seed_everything
+from lightning.pytorch import Trainer
 from dataset import ImputationDataset
 from torch.utils.data import DataLoader
 from lightning.pytorch.callbacks import ModelCheckpoint
-from pytorch_lightning.loggers import WandbLogger
 from predictions import get_predictions
 from visualize_data import log_pred_image
-from lightning.pytorch.profilers import PyTorchProfiler
 
-# Get parser and parse arguments
-parser = get_main_parser()
-args = parser.parse_args()
-args_dict = vars(args)
-
-# If exp_name is None then generate one with the current time
-if args.exp_name == 'None':
-    args.exp_name = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-
-# Get save path and create is in case it is necessary
-save_path = os.path.join('imput_results', args.dataset, args.exp_name)
-os.makedirs(save_path, exist_ok=True)
-
-# Save script arguments in json file
-with open(os.path.join(save_path, 'script_params.json'), 'w') as f:
-    json.dump(args_dict, f, indent=4)
-
-# Start wandb configs
-wandb_logger = WandbLogger(
-    project='spared_imputation',
-    name=args.exp_name,
-    log_model=False
-)
-
-# Set manual seeds and get cuda
-seed_everything(42, workers=True)
-# Set cuda visible devices
-if "CUDA_VISIBLE_DEVICES" in os.environ.keys():
-    args.cuda = os.environ["CUDA_VISIBLE_DEVICES"]
-os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda
-use_cuda = torch.cuda.is_available()
-
-# Declare device
-device = torch.device("cuda" if use_cuda else "cpu")
 
 ## Set of auxiliary functions for model test and comparison
 def get_imputation_results_from_trained_model(trainer, model, best_model_path, train_loader, val_loader, test_loader = None):
@@ -167,9 +128,19 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
 
 
 def main():
+    """
+    Parameters:
+    train_split, val_split, test_split (optional), batch_size, shuffle, pin_memory=True, drop_last=True, num_workers=0
+    masking_method, mask_prob, scale_factor, optim_metric, val_check_interval, max_steps, num_assays
+    """
+    # Create saving directory
+    os.makedirs(save_path, exist_ok=True)
+
+    # TODO: adata entra por parámetro (entran un adata por split)
     # Get dataset from the values defined in args
     dataset = get_dataset(args.dataset)
 
+    # TODO: eliminar opción con features visuales
     if args.use_visual_features:
         # Get the path to the optimized model that will work as image encoder if using pre trained weights
         img_encoder_ckpts_path = get_img_encoder_ckpts(dataset=args.dataset, args=args) if args.use_pretrained_ie else "None"
@@ -180,6 +151,7 @@ def main():
             preds=False
             )
 
+    # TODO: quitar splits internos
     # Check if test split is available
     test_data_available = True if 'test' in dataset.adata.obs['split'].unique() else False
     # Declare data splits
@@ -197,18 +169,17 @@ def main():
     # Get masking probability tensor for training
     train_prob_tensor = get_mask_prob_tensor(args.masking_method, dataset, args.mask_prob, args.scale_factor)
     # Get masking probability tensor for validating and testing with fixed method 'prob_median'
+    # TODO: definir si masking de test es igual al método de train o es fijo en prob_median
     val_test_prob_tensor = get_mask_prob_tensor('prob_median', dataset, args.mask_prob, args.scale_factor)
     # FIXME: change masking method for test to args.masking_method (i.e. 'mask_prob') when testing on a specifik masking proportion (i.e. progressive masking experiment)
     #val_test_prob_tensor = get_mask_prob_tensor(args.masking_method, dataset, args.mask_prob, args.scale_factor)
 
     # Declare model
-    vis_features_dim = train_split.obsm[f'embeddings_{args.img_backbone}'].shape[-1] if args.use_visual_features else 0
     model = GeneImputationModel(
         args=args, 
         data_input_size=dataset.adata.n_vars,
         train_mask_prob_tensor=train_prob_tensor.to(device), 
-        val_test_mask_prob_tensor = val_test_prob_tensor.to(device), 
-        vis_features_dim=vis_features_dim
+        val_test_mask_prob_tensor = val_test_prob_tensor.to(device)
         ).to(device)        
         
     print(model.model)
@@ -224,9 +195,6 @@ def main():
         mode=max_min_dict[args.optim_metric], # Choose "max" for higher values or "min" for lower values
     )
 
-    # Set pytorch profiler
-    #profiler = PyTorchProfiler()
-
     # Define the pytorch lightning trainer
     trainer = Trainer(
         max_steps=args.max_steps,
@@ -237,94 +205,48 @@ def main():
         callbacks=[checkpoint_callback],
         enable_progress_bar=True,
         enable_model_summary=True,
-        logger=wandb_logger,
-        #profiler=profiler
     )
     
-    if args.train:
-        # Train the model
-        trainer.fit(
-            model=model,
-            train_dataloaders=train_loader,
-            val_dataloaders=val_loader
-        )
-        # Load the best model after training
-        best_model_path = checkpoint_callback.best_model_path
+    # Train the model
+    trainer.fit(
+        model=model,
+        train_dataloaders=train_loader,
+        val_dataloaders=val_loader
+    )
+    # Load the best model after training
+    best_model_path = checkpoint_callback.best_model_path
 
-    else:
-        # Load the checkpoints that will be tested
-        best_model_path = args.load_ckpt_path
+    ### TEST
+    # Load the checkpoints that will be tested
+    best_model_path = args.load_ckpt_path
     
     # Test median imposition and trained/loaded model on the same masked data
-    if args.num_assays > 1:
-        mean_performance = get_mean_performance(
-                    get_complete_imputation_results, 
-                    n_assays = args.num_assays, 
-                    model = model, 
-                    trainer = trainer, 
-                    best_model_path = best_model_path, 
-                    args = args,
-                    prob_tensor = val_test_prob_tensor, 
-                    device = device, 
-                    train_split = train_split, 
-                    val_split = val_split, 
-                    test_split = test_split)
+    mean_performance = get_mean_performance(
+                get_complete_imputation_results, 
+                n_assays = args.num_assays, 
+                model = model, 
+                trainer = trainer, 
+                best_model_path = best_model_path, 
+                args = args,
+                prob_tensor = val_test_prob_tensor, 
+                device = device, 
+                train_split = train_split, 
+                val_split = val_split, 
+                test_split = test_split)
 
-        # Get quantitative results and adatas with the last random masking performed saved in layers
-        mean_performance_results, train_split, val_split, test_split = mean_performance
+    # Get quantitative results and adatas with the last random masking performed saved in layers
+    mean_performance_results, train_split, val_split, test_split = mean_performance
 
-        # Save results in a txt file
-        test_description = f"Gene imputation through median and {args.base_arch} model.\n"\
-                           f"Checkpoints restored from {best_model_path}"
-        
-        file_path = os.path.join(save_path, 'testing_results.txt')
-        with open(file_path, 'w') as txt_file:
-            txt_file.write(test_description)
-            # Convert the dictionary to a formatted string
-            dict_str = json.dumps(mean_performance_results, indent=4)
-            txt_file.write(dict_str)
-
-        # Remove inner test dictionary if it is empty
-        if not test_data_available:
-            del mean_performance_results['test']
-        # Log tables with the mean performance results in WandB
-        log_metrics_tables(mean_performance_results, wandb_logger, args.num_assays)  
-        # Log the mean value of each metric in the imputation model only for test split (or val if test is not available)
-        log_mean_test_metrics(mean_performance_results, wandb_logger, test_data_available)     
-        
-    else:
-        complete_imputation = get_complete_imputation_results(
-                    model = model, 
-                    trainer = trainer, 
-                    best_model_path = best_model_path, 
-                    args = args,
-                    prob_tensor = val_test_prob_tensor, 
-                    device = device, 
-                    train_split = train_split, 
-                    val_split = val_split, 
-                    test_split = test_split)
-
-        complete_imput_results, train_split, val_split, test_split = complete_imputation
-
-    # Uncomment to get and save model predictions for pre-masked expression matrix in all adata splits
-    '''# Get model predictions for pre-masked expression matrix in all adata splits
-    get_predictions(adata = train_split, 
-                    args = args, 
-                    model = model, 
-                    split_name = 'train', 
-                    layer = args.prediction_layer, 
-                    method = 'transformer', 
-                    device = device,
-                    save_path = save_path)
+    # Save results in a txt file
+    test_description = f"Gene imputation through median and {args.base_arch} model.\n"\
+                        f"Checkpoints restored from {best_model_path}"
     
-    get_predictions(adata = val_split, 
-                    args = args, 
-                    model = model, 
-                    split_name = 'val', 
-                    layer = args.prediction_layer, 
-                    method = 'transformer', 
-                    device = device,
-                    save_path = save_path)'''
+    file_path = os.path.join(save_path, 'testing_results.txt')
+    with open(file_path, 'w') as txt_file:
+        txt_file.write(test_description)
+        # Convert the dictionary to a formatted string
+        dict_str = json.dumps(mean_performance_results, indent=4)
+        txt_file.write(dict_str)
     
     if test_data_available:
         get_predictions(adata = test_split, 
@@ -347,6 +269,57 @@ def main():
                     device = device
                     )
         
+    return train_split, val_split, test_split
+
+def test_completion_model(test_split, ckpt_path, save_results_path):
+    ### TEST
+    # Load the checkpoints that will be tested
+    best_model_path = ckpt_path
+    
+    # Test median imposition and trained/loaded model on the same masked data
+    mean_performance = get_mean_performance(
+                get_complete_imputation_results, 
+                n_assays = args.num_assays, 
+                model = model, 
+                trainer = trainer, 
+                best_model_path = best_model_path, 
+                args = args,
+                prob_tensor = val_test_prob_tensor, 
+                device = device, 
+                train_split = train_split, 
+                val_split = val_split, 
+                test_split = test_split)
+
+    # Get quantitative results and adatas with the last random masking performed saved in layers
+    mean_performance_results, train_split, val_split, test_split = mean_performance
+
+    # Save results in a txt file
+    test_description = f"Gene imputation using SpaCKLE model.\n"\
+                        f"Checkpoints restored from {best_model_path}"
+    
+    file_path = os.path.join(save_results_path, 'testing_results.txt')
+    with open(file_path, 'w') as txt_file:
+        txt_file.write(test_description)
+        # Convert the dictionary to a formatted string
+        dict_str = json.dumps(mean_performance_results, indent=4)
+        txt_file.write(dict_str)
+    
+    # add predictions layer to adata
+    save_predictions_path = save_results_path if save_predictions else ''
+    get_predictions(adata = test_split, 
+                args = args, 
+                model = model, 
+                split_name = 'test', 
+                layer = args.prediction_layer, 
+                method = 'transformer', 
+                device = device, 
+                save_path = save_predictions_path # if != '', then the predictions will be saved to csv file
+                )
+    
+    # TODO: print metrics results
+        
+    return train_split, val_split, test_split
+        
     # Only run on test set to log in WandB
     adata_for_visuals = test_split if test_data_available else val_split
     prepare_preds_for_visuals(adata_for_visuals, args)
@@ -354,23 +327,6 @@ def main():
     # Log prediction images
     log_pred_image(adata = adata_for_visuals, n_genes = 3)  
     
-    #  ------------------------------------------------  ##  ------------------------------------------------  ##
-    # Uncomment the following lines to test on random mask instead of the pre-masking method
-    # Load NOT pre-masked data
-    #if test_data_available:
-    #    test_data = ImputationDataset(test_split, args, 'test')
-    #    test_loader = DataLoader(
-    #        test_data, 
-    #        batch_size=args.batch_size, 
-    #        shuffle=False, 
-    #        pin_memory=True, 
-    #        drop_last=True,
-    #        num_workers=args.num_workers)
-    #else:
-    #    test_loader = val_loader
-
-    #print("First test of the model on test split (random masking instead of the one used on the median!!)")
-    #test_results = trainer.test(model = model, dataloaders = test_loader, ckpt_path = best_model_path)
 
 # Run gene imputation model
 if __name__=='__main__':
