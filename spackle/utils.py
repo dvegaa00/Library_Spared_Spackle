@@ -17,64 +17,6 @@ str2intlist = lambda x: [int(i) for i in x.split(',')]
 str2floatlist = lambda x: [float(i) for i in x.split(',')]
 str2h_list = lambda x: [str2intlist(i) for i in x.split('//')[1:]]
 
-# Function to get global parser
-def get_main_parser():
-    parser = argparse.ArgumentParser(description='Code for gene expression imputation.')
-    # Dataset parameters #####################################################################################################################################################################
-    parser.add_argument('--dataset',                        type=str,           default='10xgenomic_human_brain',   help='Dataset to use.')
-    parser.add_argument('--prediction_layer',               type=str,           default='c_d_log1p',                help='The prediction layer from the dataset to use.')
-    parser.add_argument('--hex_geometry',                   type=bool,          default=True,                       help='Whether the geometry of the spots in the dataset is hexagonal or not.')
-    # Data masking parameters ################################################################################################################################################################
-    parser.add_argument('--masking_method',                 type=str,           default='mask_prob',              help='The masking method to use.', choices=['prob_median', 'mask_prob', 'scale_factor'])
-    parser.add_argument('--mask_prob',                      type=float,         default=0.3,                        help='The probability of masking a gene for imputation when mas_prob masking methos is selected.')
-    parser.add_argument('--scale_factor',                   type=float,         default=0.8,                        help='The scale factor to use for masking when scale_factor masking method is selected.')
-    parser.add_argument('--neighborhood_type',              type=str,           default='nn_distance',              help='The method used to select the neighboring spots.', choices=['circular_hops', 'nn_distance'])
-    parser.add_argument('--num_neighs',                     type=int,           default=18,                          help='Amount of neighbors to consider for context during imputation.')
-    parser.add_argument('--num_hops',                       type=int,           default=1,                          help='Amount of graph hops to consider for context during imputation if neighborhoods are built based on proximity rings.')
-    # Imputation model parameters ############################################################################################################################################################
-    parser.add_argument('--base_arch',                      type=str,           default='transformer_encoder',      help='Base architecture chosen for the imputation model.', choices=['transformer_encoder', 'MLP'])
-    parser.add_argument('--transformer_dim',                type=int,           default=128,                        help='The number of expected features in the encoder/decoder inputs of the transformer.')
-    parser.add_argument('--transformer_heads',              type=int,           default=1,                          help='The number of heads in the multiheadattention models of the transformer.')
-    parser.add_argument('--transformer_encoder_layers',     type=int,           default=2,                          help='The number of sub-encoder-layers in the encoder of the transformer.')
-    parser.add_argument('--transformer_decoder_layers',     type=int,           default=1,                          help='The number of sub-decoder-layers in the decoder of the transformer.')
-    parser.add_argument('--include_genes',                  type=str2bool,      default=True,                       help='Whether or not to to include the gene expression matrix in the data inputed to the transformer encoder when using visual features.')
-    parser.add_argument('--use_visual_features',            type=str2bool,      default=False,                      help='Whether or not to use visual features to guide the imputation process.')
-    parser.add_argument('--use_double_branch_archit',       type=str2bool,      default=False,                      help='Whether or not to use the double branch transformer architecture when using visual features to guide the imputation process.')
-    # Model parameters #######################################################################################################################################################################
-    parser.add_argument('--sota',                           type=str,           default='pretrain',                 help='The name of the sota model to use. "None" calls main.py, "nn_baselines" calls nn_baselines.py, "pretrain" calls pretrain_backbone.py, and any other calls main_sota.py', choices=['None', 'pretrain', 'stnet', 'nn_baselines', "histogene"])
-    parser.add_argument('--img_backbone',                   type=str,           default='ViT',                      help='Backbone to use for image encoding.', choices=['resnet', 'ConvNeXt', 'MobileNetV3', 'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResNet', 'densenet', 'swin'])
-    parser.add_argument('--use_pretrained_ie',              type=str,           default=True,                       help='Whether or not to use a pretrained image encoder model to get the patches embeddings.')
-    parser.add_argument('--freeze_img_encoder',             type=str2bool,      default=False,                      help='Whether to freeze the image encoder. Only works when using pretrained model.')
-    parser.add_argument('--matrix_union_method',            type=str,           default='concatenate',              help='Method used to combine the output of the gene processing transformer and the visual features processing transformer.', choices=['concatenate', 'sum'])
-    parser.add_argument('--num_mlp_layers',                 type=int,           default=5,                          help='Number of layers stacked in the MLP architecture.')
-    parser.add_argument('--ae_layer_dims',                  type=str2intlist,   default='512,384,256,128,64,128,256,384,512',                          help='Layer dimensions for ae in MLP base architecture.')
-    parser.add_argument('--mlp_act',                        type=str,           default='ReLU',                     help='Activation function to use in the MLP architecture. Case sensitive, options available at: https://pytorch.org/docs/stable/nn.html#non-linear-activations-weighted-sum-nonlinearity')
-    parser.add_argument('--mlp_dim',                        type=int,           default=512,                        help='Dimension of the MLP layers.')
-    parser.add_argument('--graph_operator',                 type=str,           default='None',                     help='The convolutional graph operator to use. Case sensitive, options available at: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#convolutional-layers', choices=['GCNConv','SAGEConv','GraphConv','GATConv','GATv2Conv','TransformerConv', 'None'])
-    parser.add_argument('--pos_emb_sum',                    type=str2bool,      default=False,                      help='Whether or not to sum the nodes-feature with the positional embeddings. In case False, the positional embeddings are only concatenated.')
-    parser.add_argument('--h_global',                       type=str2h_list,    default='//-1//-1//-1',             help='List of dimensions of the hidden layers of the graph convolutional network.')
-    parser.add_argument('--pooling',                        type=str,           default='None',                     help='Global graph pooling to use at the end of the graph convolutional network. Case sensitive, options available at but must be a global pooling: https://pytorch-geometric.readthedocs.io/en/latest/modules/nn.html#pooling-layers')
-    parser.add_argument('--dropout',                        type=float,         default=0.0,                        help='Dropout to use in the model to avoid overfitting.')
-    # Train parameters #######################################################################################################################################################################
-    parser.add_argument('--num_workers',                    type=int,           default=0,                          help='DataLoader num_workers parameter - amount of subprocesses to use for data loading.')
-    parser.add_argument('--num_assays',                     type=int,           default=10,                         help='Number of experiments used to test the model.')
-    parser.add_argument('--optim_metric',                   type=str,           default='MSE',                      help='Metric that should be optimized during training.', choices=['PCC-Gene', 'MSE', 'MAE', 'Global'])
-    parser.add_argument('--max_steps',                      type=int,           default=10000,                      help='Number of steps to train de model.')
-    parser.add_argument('--val_check_interval',             type=int,           default=10,                         help='Number of steps to do valid checks.')
-    parser.add_argument('--batch_size',                     type=int,           default=256,                        help='The batch size to train model.')
-    parser.add_argument('--shuffle',                        type=str2bool,      default=True,                       help='Whether or not to shuffle the data in dataloaders.')
-    parser.add_argument('--lr',                             type=float,         default=1e-3,                       help='Learning rate to use.')
-    parser.add_argument('--optimizer',                      type=str,           default='Adam',                     help='Optimizer to use in training. Options available at: https://pytorch.org/docs/stable/optim.html It will just modify main optimizers and not sota (they have fixed optimizers).')
-    parser.add_argument('--momentum',                       type=float,         default=0.9,                        help='Momentum to use in the optimizer if it receives this parameter. If not, it is not used. It will just modify main optimizers and not sota (they have fixed optimizers).')
-    parser.add_argument('--average_test',                   type=str2bool,      default=False,                      help='If True it will compute the 8 symmetries of an image during test and the prediction will be the average of the 8 outputs of the model.')
-    parser.add_argument('--cuda',                           type=str,           default='0',                        help='CUDA device to run the model.')
-    parser.add_argument('--exp_name',                       type=str,           default='None',                     help='Name of the experiment to save in the results folder. "None" will assign a date coded name.')
-    parser.add_argument('--train',                          type=str2bool,      default=True,                       help='If true it will train, if false it only tests')
-    parser.add_argument('--load_ckpt_path',                 type=str,           default='',                         help='Path to the checkpoints that will be tested when not training from scratch.')
-    ##########################################################################################################################################################################################
-
-    return parser
-
 def seed_everything(seed: int):
     import random, os
     import numpy as np
@@ -229,7 +171,6 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
         model (model): imputation model with loaded weights to test perfomance.
         trainer (lightning.Trainer): pytorch lightning trainer used for model training and testing.
         best_model_path (str): path to the checkpoints that will be tested.
-        args (argparse): parser with the values necessary for data processing.
         prob_tensor (torch.Tensor): vector with the masking probability of each gene for testing. Shape: n_genes  
         device (torch.device): device in which tensors will be processed.
         train_split (ad.AnnData): adata of the train data split before being masked and imputed through median and trained model.
