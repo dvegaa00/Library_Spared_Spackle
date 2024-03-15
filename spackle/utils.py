@@ -144,161 +144,6 @@ def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) ->
     # Return the neighbors dict
     return neighbors_dict_index
 
-### Define cleaning function for single slide:
-def adaptive_median_filter_pepper(adata: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
-    """
-    This function computes the adaptive median filter for pairs (obs, gene) with a zero value (peper noise) in the layer 'from_layer' and
-    stores the result in the layer 'to_layer'. The max window size is a neighborhood of n_hops defined by the conectivity hex_geometry
-    inputed by parameter. This means the number of concentric rings in a graph to take into account to compute the median.
-
-    Args:
-        adata (ad.AnnData): the AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
-        from_layer (str): the layer to compute the adaptive median filter from.
-        to_layer (str): the layer to store the results of the adaptive median filter.
-        n_hops (int): the maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-        hex_geometry (bool): whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                            used to compute the spatial neighbors and only true for visium datasets.
-
-    Returns:
-        ad.AnnData: The AnnData object with the results of the adaptive median filter stored in the layer 'to_layer'.
-    """
-    # Define original expression matrix
-    original_exp = adata.layers[from_layer]    
-
-    medians = np.zeros((adata.n_obs, n_hops, adata.n_vars))
-
-    # Iterate over the hops
-    for i in range(1, n_hops+1):
-        
-        # Get dictionary of neighbors for a given number of hops
-        curr_neighbors_dict = get_spatial_neighbors(adata, i, hex_geometry)
-
-        # Iterate over observations
-        for j in range(adata.n_obs):
-            # Get the list of indexes of the neighbors of the j'th observation
-            neighbors_idx = curr_neighbors_dict[j]
-            # Get the expression matrix of the neighbors
-            neighbor_exp = original_exp[neighbors_idx, :]
-            # Get the median of the expression matrix
-            median = np.median(neighbor_exp, axis=0)
-
-            # Store the median in the medians matrix
-            medians[j, i-1, :] = median
-    
-    # Also robustly compute the median of the non-zero values for each gene
-    general_medians = np.apply_along_axis(lambda v: np.median(v[np.nonzero(v)]), 0, original_exp)
-    general_medians[np.isnan(general_medians)] = 0.0 # Correct for possible nans
-
-    # Define corrected expression matrix
-    corrected_exp = np.zeros_like(original_exp)
-
-    ### Now that all the possible medians are computed. We code for each observation:
-    
-    # Note: i indexes over observations, j indexes over genes
-    for i in range(adata.n_obs):
-        for j in range(adata.n_vars):
-            
-            # Get real expression value
-            z_xy = original_exp[i, j]
-
-            # Only apply adaptive median filter if real expression is zero
-            if z_xy != 0:
-                corrected_exp[i,j] = z_xy
-                continue
-            
-            else:
-
-                # Definie initial stage and window size
-                current_stage = 'A'
-                k = 0
-
-                while True:
-
-                    # Stage A:
-                    if current_stage == 'A':
-                        
-                        # Get median value
-                        z_med = medians[i, k, j]
-
-                        # If median is not zero then go to stage B
-                        if z_med != 0:
-                            current_stage = 'B'
-                            continue
-                        # If median is zero, then increase window and repeat stage A
-                        else:
-                            k += 1
-                            if k < n_hops:
-                                current_stage = 'A'
-                                continue
-                            # If we have the biggest window size, then return the median
-                            else:
-                                # NOTE: Big modification to the median filter here. Be careful
-                                corrected_exp[i,j] = general_medians[j]
-                                break
-
-
-                    # Stage B:
-                    elif current_stage == 'B':
-                        
-                        # Get window median
-                        z_med = medians[i, k, j]
-
-                        # If real expression is not peper then return it
-                        if z_xy != 0:
-                            corrected_exp[i,j] = z_xy
-                            break
-                        # If real expression is peper, then return the median
-                        else:
-                            corrected_exp[i,j] = z_med
-                            break
-
-    # Add corrected expression to adata
-    adata.layers[to_layer] = corrected_exp
-
-    return adata
-
-def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool, split_name: str = 'complete') -> ad.AnnData:
-    """
-    This wrapper function computes the adaptive median filter for all the slides in the collection and then concatenates the results
-    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper function.
-
-    Args:
-        collection (ad.AnnData): the AnnData collection to process. Contains all the slides.
-        from_layer (str): the layer to compute the adaptive median filter from. Where to clean the noise from.
-        to_layer (str): the layer to store the results of the adaptive median filter. Where to store the cleaned data.
-        n_hops (int): the maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-        hex_geometry (bool): whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                used to compute the spatial neighbors and only true for visium datasets.
-        split_name (str, optional): name of the data split being masked and imputed.
-
-    Returns:
-        ad.AnnData: The processed AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
-    """
-    # Print message
-    print(f'Applying adaptive median filter to {split_name} collection...')
-
-    # Get the unique slides
-    slides = np.unique(collection.obs['slide_id'])
-
-    # Define the corrected adata list
-    corrected_adata_list = []
-
-    # Iterate over the slides
-    for slide in tqdm(slides):
-        # Get the adata of the slide
-        adata = collection[collection.obs['slide_id'] == slide].copy()
-        # Apply adaptive median filter
-        adata = adaptive_median_filter_pepper(adata, from_layer, to_layer, n_hops, hex_geometry)
-        # Append to the corrected adata list
-        corrected_adata_list.append(adata)
-
-    # Concatenate the corrected adata list
-    corrected_collection = ad.concat(corrected_adata_list, join='inner', merge='same')
-    # Restore the uns attribute
-    corrected_collection.uns = collection.uns
-
-    return corrected_collection
-
 def get_mask_prob_tensor(masking_method, dataset, mask_prob=0.3, scale_factor=0.8):
     """
     This function calculates the probability of masking each gene present in the expression matrix. 
@@ -372,63 +217,6 @@ def mask_exp_matrix(adata: ad.AnnData, pred_layer: str, mask_prob_tensor: torch.
 
     return adata
 
-### Function to apply and evaluate adaptive median imputation method on a data split
-def apply_median_imputation_method(data_split: ad.AnnData, split_name: str, prediction_layer: str, prob_tensor: torch.Tensor, device: torch.device) -> dict:
-    """
-    This function receives the adata of a data split and masks the expression layer to later impute the missing values by 
-    applying the adaptive median method.
-
-    Args:
-        data_split (ad.AnnData): adata of the data split that will be masked and imputed with the adaptive median method.
-        split_name (str): name of the data split being masked and imputed.
-        prediction_layer (str): name of the layer with the gene expression values that need to be predicted/imputed.
-        prob_tensor (torch.Tensor): vector with the masking probability of each gene for testing. Shape: n_genes  
-        device (torch.device): device in which tensors will be processed.
-
-    Returns:
-        median_imputation_adata (ad.annData): same adata as data_split but with additional layers 'masked_expression_matrix', 
-                                             'median_imputed_expression_matrix' and 'random_mask'.
-        metrics (dict): dictionary with the evaluation metrics of the adaptive median imputation method.
-    """
-    # Mask the data_split expression matrix
-    data_split = mask_exp_matrix(adata = data_split, pred_layer = prediction_layer, mask_prob_tensor = prob_tensor, device = device)
-
-    # Apply the median filter to the 'masked_expression_matrix' layer in the data_split annData
-    median_imputation_adata = clean_noise(collection = data_split, from_layer = 'masked_expression_matrix', to_layer = 'median_imputed_expression_matrix', n_hops=4, hex_geometry = True)
-    expression_mtx_imputed = median_imputation_adata.layers['median_imputed_expression_matrix'] #pred
-    expression_mtx_gt = median_imputation_adata.layers[prediction_layer] #gt
-    random_mask = median_imputation_adata.layers['random_mask'] #mask
-    
-    # Evaluate imputation on test split
-    metrics = get_metrics(expression_mtx_gt, expression_mtx_imputed, random_mask)
-    metrics = {f'{split_name}_{k}': v for k, v in metrics.items()}
-    return median_imputation_adata, metrics
-
-def prepare_preds_for_visuals(data_split : ad.AnnData, args: argparse):
-    """
-    This function prepares the median imputation predictions for the visualization plots.
-
-    Args:
-        data_split (ad.AnnData): adata of the data split with the masked expressions and the imputation results for both the median and the trained method.
-        args (argparse): parser with the values necessary for data processing.
-    """
-    # Extract the median imputation prediction, the gt and the random mask
-    expression_mtx_gt = data_split.layers[args.prediction_layer]
-    expression_mtx_imputed = data_split.layers['median_imputed_expression_matrix']
-    random_mask = data_split.layers['random_mask']
-    
-    # Get the ids of the spots
-    glob_ids = None
-    glob_ids = data_split.obs['unique_id'].tolist() if glob_ids is None else glob_ids + data_split.obs['unique_id'].tolist()
-
-    # Put prediction in a dataframe
-    pred_miss = np.where(random_mask == True, expression_mtx_imputed, expression_mtx_gt)
-    pred_matrix = pred_miss
-    pred_df = pd.DataFrame(pred_matrix, index=glob_ids, columns=data_split.var_names)
-    pred_df = pred_df.reindex(data_split.obs.index)
-    # Add predictions to adata
-    data_split.layers[f'predictions,{args.prediction_layer},median'] = pred_df
-
 def get_mean_performance(complete_imputation_function, n_assays: int, model, trainer, best_model_path: str, args: argparse, prob_tensor: torch.Tensor, device: torch.device, train_split: ad.AnnData, val_split: ad.AnnData, test_split: ad.AnnData = None) -> dict:
     """
     This function receives the data before being imputed and performs n_assays experiments imputing through both methods. 
@@ -463,9 +251,9 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
         Returns:
             final_metrics (dict): dictionary with the mean and standard deviation of each evaluation metric for both the median imputation method and the model.
         """
-        final_metrics = {'train':{'median':{}, 'model':{}},
-                        'val':{'median':{}, 'model':{}},
-                        'test':{'median':{}, 'model':{}}}
+        final_metrics = {'train':{'model':{}},
+                        'val':{'model':{}},
+                        'test':{'model':{}}}
         
         for split, methods_dict in grouped_metrics_dict.items():
             for method, metrics_dict in methods_dict.items():
@@ -478,9 +266,9 @@ def get_mean_performance(complete_imputation_function, n_assays: int, model, tra
 
         return final_metrics
     
-    stats_per_split = {'train':{'completion_model':{}},
-                       'val':{'completion_model':{}},
-                       'test':{'completion_model':{}}}
+    stats_per_split = {'train':{'model':{}},
+                       'val':{'model':{}},
+                       'test':{'model':{}}}
     
     # Test both imputation methods in n_assays random masking problems of all data splits
     for i in range(n_assays):

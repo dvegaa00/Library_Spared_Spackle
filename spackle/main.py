@@ -63,40 +63,9 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
         test_split (ad.AnnData): if not None, updated test adata with the prediction layers included.
 
     """
-    complete_imputation_results = {}
-    ## Results for median filter
-    train_split, train_median_imputation_results = apply_median_imputation_method(
-        data_split = train_split, 
-        split_name = 'train', 
-        prediction_layer = args.prediction_layer, 
-        prob_tensor = prob_tensor, 
-        device = device)
-    
-    print('Median imputation results on train data split: ', train_median_imputation_results)
-    
-    val_split, val_median_imputation_results = apply_median_imputation_method(
-        data_split = val_split, 
-        split_name = 'val', 
-        prediction_layer = args.prediction_layer, 
-        prob_tensor = prob_tensor, 
-        device = device)
-    
-    print('Median imputation results on val data split: ', val_median_imputation_results)
-    
-    # Use test_split too if available
-    test_median_imputation_results = None
-    if test_split is not None:
-        # Results for median filter
-        test_split, test_median_imputation_results = apply_median_imputation_method(
-            data_split = test_split, 
-            split_name = 'test', 
-            prediction_layer = args.prediction_layer, 
-            prob_tensor = prob_tensor, 
-            device = device)
-        
-        print('Median imputation results on test data split: ', test_median_imputation_results)
-        
+    complete_imputation_results = {}    
     ## Prepare DataLoaders for testing on trained model
+    #TODO: cambiar los args que le entran a ImputationDataset 
     train_data = ImputationDataset(train_split, args, 'train', pre_masked = True)
     train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
 
@@ -114,14 +83,11 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
 
     # Build dictionary with results from median and model
     complete_imputation_results = {
-        'train_median_imputation_results': train_median_imputation_results,
-        'val_median_imputation_results': val_median_imputation_results,
         'train_model_results': trained_model_results[0],
         'val_model_results': trained_model_results[1]
         }
     
     if test_split is not None:
-        complete_imputation_results['test_median_imputation_results'] = test_median_imputation_results
         complete_imputation_results['test_model_results'] = trained_model_results[2]
     
     return complete_imputation_results, train_split, val_split, test_split
