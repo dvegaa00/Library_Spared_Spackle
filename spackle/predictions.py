@@ -8,7 +8,19 @@ import pandas as pd
 import os
 
 #TODO: Document
-def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p', method='transformer', device="cuda", save_path = '')->None:
+def get_predictions(
+        adata: ad.AnnData, 
+        model, 
+        split_name, 
+        layer = 'c_d_log1p',
+        device = 'cuda', 
+        save_path = '',
+        batch_size = 256,
+        shuffle = True,
+        pin_memory = True, 
+        drop_last = False,
+        num_workers = 0,
+        )->None:
     """
     This function receives a trained model and an adata for which it will predict the imputed gene expression matrix using a trained model.
     The predictions are saved in the original adata for visualization purposes.
@@ -19,15 +31,14 @@ def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p
         model (model): model used to get imputation predictions.
         split_name (str): name of the split being processed.
         layer (str, optional): layer for prediction. Defaults to 'c_d_log1p'.
-        method (str): imputation method to which the model corresponds. Either 'median' or 'transformer'.
         device (torch.device): device in which tensors will be processed.
         save_path (str, optional): path were a dictionary of the predictions, masked map, ground truth and median imputation results will be saved.
     """    
     # Prepare data 
-    dataset = ImputationDataset(adata, args, split_name, pre_masked = True)
+    dataset = ImputationDataset(adata, split_name, prediction_layer = layer, pre_masked = True)
     # Get complete dataloader
     # FIXME: ValueError: Shape of passed values is (1536, 128), indices imply (1788, 128) if drop_last=True
-    dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=False, num_workers=args.num_workers)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, pin_memory=pin_memory, drop_last=drop_last, num_workers=num_workers)
     
     # Define global variables
     glob_masked_map = None
@@ -44,7 +55,6 @@ def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p
     # Get complete predictions
     with torch.no_grad():
         for batch in tqdm(dataloader):
-            # TODO: confirm if this returns predictions in model.eval() mode
             # Get the outputs from model
             prediction, expression_gt, random_mask = model.pred_outputs_from_batch(batch, pre_masked_batch = True)
             # Input expression matrix
@@ -81,7 +91,7 @@ def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p
         mask_df = mask_df.reindex(adata.obs.index)
 
         # Add layer to adata
-        adata.layers[f'predictions,{layer},{method}'] = pred_df
+        adata.layers[f'predictions,{layer},spackle'] = pred_df
         adata.layers["masked_map"] = mask_df
 
         if save_path != '':
@@ -89,17 +99,11 @@ def get_predictions(adata: ad.AnnData, args, model, split_name, layer='c_d_log1p
             os.makedirs(os.path.join(save_path, 'predictions', split_name), exist_ok=True)
 
             # Save model's predictions and initial mask
-            pred_df.to_csv(os.path.join(save_path, 'predictions', split_name, f'transformer_preds_{split_name}.csv'))
+            pred_df.to_csv(os.path.join(save_path, 'predictions', split_name, f'spackle_preds_{split_name}.csv'))
             mask_df.to_csv(os.path.join(save_path, 'predictions', split_name, f'masked_map_{split_name}.csv'))
 
-            # Save median preditions
-            median_imputation_results = adata.layers['median_imputed_expression_matrix'] # Values that are False in layers['random_mask'] are the same as in glob_expression_pred (i.e. ground truth)
-            median_df = pd.DataFrame(median_imputation_results, index=glob_ids, columns=adata.var_names)
-            median_df = median_df.reindex(adata.obs.index)
-            median_df.to_csv(os.path.join(save_path, 'predictions', split_name, f'median_preds_{split_name}.csv'))
-
             # Save ground truths
-            ground_truth_matrix = adata.layers[args.prediction_layer] # Values that are False in layers['random_mask'] are the same as in glob_expression_pred (i.e. ground truth)
+            ground_truth_matrix = adata.layers[layer] # Values that are False in layers['random_mask'] are the same as in glob_expression_pred (i.e. ground truth)
             ground_truth_df = pd.DataFrame(ground_truth_matrix, index=glob_ids, columns=adata.var_names)
             ground_truth_df = ground_truth_df.reindex(adata.obs.index)
             ground_truth_df.to_csv(os.path.join(save_path, 'predictions', split_name, f'gt_{split_name}.csv'))
