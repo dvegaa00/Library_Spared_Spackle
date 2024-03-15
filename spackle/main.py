@@ -41,7 +41,8 @@ def get_imputation_results_from_trained_model(trainer, model, best_model_path, t
 
     return train_model_imputation_metrics, val_model_imputation_metrics, test_model_imputation_metrics
 
-def get_complete_imputation_results(model, trainer, best_model_path, args, prob_tensor, device, train_split, val_split, test_split = None):
+def get_complete_imputation_results(model, trainer, best_model_path, prob_tensor, device, batch_size, num_workers, prediction_layer, train_split, val_split, test_split = None):
+    #model, trainer, best_model_path, prob_tensor, device, train_split, val_split, test_split = None, batch_size, num_workers
     """
     This function gets the evaluation metrics of both the median filter and the trained model in all data splits available.
 
@@ -65,15 +66,15 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
     """
     complete_imputation_results = {}    
     ## Prepare DataLoaders for testing on trained model
-    train_data = ImputationDataset(train_split, 'train', prediction_layer='c_d_log1p', pre_masked = True)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+    train_data = ImputationDataset(train_split, 'train', prediction_layer=prediction_layer, pre_masked = True)
+    train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=num_workers)
 
-    val_data = ImputationDataset(val_split, 'val', prediction_layer='c_d_log1p', pre_masked = True)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+    val_data = ImputationDataset(val_split, 'val', prediction_layer=prediction_layer, pre_masked = True)
+    val_loader = DataLoader(val_data, batch_size=batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=num_workers)
     test_loader = None
     if test_split is not None:
-        test_data = ImputationDataset(test_split, 'test', prediction_layer='c_d_log1p', pre_masked = True)
-        test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+        test_data = ImputationDataset(test_split, 'test', prediction_layer=prediction_layer, pre_masked = True)
+        test_loader = DataLoader(test_data, batch_size=batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=num_workers)
 
     ## Results for trained model
     trained_model_results = get_imputation_results_from_trained_model(
@@ -216,7 +217,9 @@ def test_completion_model(
         num_assays = 10,
         mask_prob = 0.3, 
         scale_factor = 0.8,
-        device = 'cuda'):
+        device = 'cuda',
+        num_workers = 0,
+        batch_size = 256):
     
     # Select split for testing
     test_split = test_split if test_split != None else val_split
@@ -240,16 +243,19 @@ def test_completion_model(
     # TODO: modificar get_mean_perfomance 
     mean_performance = get_mean_performance(
                 get_complete_imputation_results, 
-                n_assays = args.num_assays, 
+                n_assays = num_assays, 
                 model = model, 
                 trainer = trainer, 
                 best_model_path = best_model_path, 
-                args = args,
                 prob_tensor = val_test_prob_tensor, 
                 device = device, 
+                batch_size = batch_size, 
+                num_workers = num_workers,
+                prediction_layer = prediction_layer,
                 train_split = train_split, 
                 val_split = val_split, 
-                test_split = test_split)
+                test_split = test_split
+                )
 
     # Get quantitative results and adatas with the last random masking performed saved in layers
     mean_performance_results, train_split, val_split, test_split = mean_performance
