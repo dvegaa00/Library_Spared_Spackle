@@ -132,7 +132,6 @@ def initialize_model(
         val_test_prob_tensor,
         device = 'cuda'
 ):
-    # TODO: crear función que inicializa modelo de compleción
     # Declare model
     print('Initializing completion model with SpaCKLE')
     model = GeneImputationModel(
