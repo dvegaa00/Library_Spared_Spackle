@@ -107,7 +107,6 @@ def get_plotting_slides_adata(collection: ad.AnnData, slide_list: str) -> list:
     # Return the slides
     return s_adata_list
 
-
 def plot_all_slides(dataset: str, processed_adata: ad.AnnData, path: str) -> None:
     """
     This function takes a slide collection and plot all the whole slide images in a square aspect ratio.
@@ -144,7 +143,6 @@ def plot_all_slides(dataset: str, processed_adata: ad.AnnData, path: str) -> Non
 
     fig.savefig(path, dpi=300)
     plt.close()
-
 
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
@@ -260,7 +258,6 @@ def plot_exp_frac(param_dict: dict, dataset: str, raw_adata: ad.AnnData, path: s
     sns.set_theme(font_scale=1.0)
     mpl.rcParams.update(mpl.rcParamsDefault)
 
-
 ### Define function to get the expression fraction
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
@@ -291,8 +288,6 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     # Return the adata
     return adata
     
-    
-
 def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: str) -> None:
     """
     This function plots a figure that analyses the effect of the filtering over the data.
@@ -378,7 +373,6 @@ def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: st
     fig.savefig(path, dpi=300)
     plt.close()
 
-
 def plot_random_patches(patch_scale: float = 1.0, patch_size: int = 224, dataset: str, processed_adata: ad.AnnData, path: str) -> None:
     """
     This function gets 16 flat random patches (with the specified dims) from the processed adata objects. It
@@ -413,7 +407,6 @@ def plot_random_patches(patch_scale: float = 1.0, patch_size: int = 224, dataset
     plt.tight_layout()
     im.savefig(path, dpi=300)
     plt.close()
-
 
 def visualize_moran_filtering(param_dict: dict, processed_adata: ad.AnnData, from_layer: str, path: str, top: bool = True) -> None:
     """
@@ -495,7 +488,6 @@ def visualize_moran_filtering(param_dict: dict, processed_adata: ad.AnnData, fro
     # Save plot 
     fig.savefig(path, dpi=300)
     plt.close()
-
 
 def visualize_gene_expression(param_dict: dict, processed_adata: ad.AnnData, from_layer: str, path: str) -> None:
     """
@@ -718,7 +710,6 @@ def plot_clusters(dataset: str, param_dict: dict, processed_adata: ad.AnnData, f
     # fig.tight_layout()
     fig.savefig(path, dpi=300)
     plt.close(fig)
-
 
 def plot_mean_std(dataset: str, processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: str) -> None:
     """
