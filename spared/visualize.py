@@ -373,7 +373,7 @@ def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: st
     fig.savefig(path, dpi=300)
     plt.close()
 
-def plot_random_patches(patch_scale: float = 1.0, patch_size: int = 224, dataset: str, processed_adata: ad.AnnData, path: str) -> None:
+def plot_random_patches(dataset: str, processed_adata: ad.AnnData, path: str, patch_scale: float = 1.0, patch_size: int = 224) -> None:
     """
     This function gets 16 flat random patches (with the specified dims) from the processed adata objects. It
     reshapes them to a bidimensional form and shows them. The plot is saved to the specified path.
@@ -886,7 +886,7 @@ def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: d
 
     # Make plot of random patches
     print('Started random patches plotting')
-    plot_random_patches(patch_scale, patch_size, dataset, processed_adata, os.path.join(save_path, 'random_patches.png'))
+    plot_random_patches(dataset, processed_adata, os.path.join(save_path, 'random_patches.png'), patch_scale, patch_size)
 
     # Create save paths fot top and bottom moran genes
     os.makedirs(os.path.join(save_path, 'top_moran_genes'), exist_ok=True)

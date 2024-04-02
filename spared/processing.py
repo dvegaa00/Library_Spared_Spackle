@@ -1,3 +1,33 @@
+import anndata as ad
+from anndata.experimental.pytorch import AnnLoader
+import torch
+from . import im_encoder
+import torchvision.models as tmodels
+import torch.nn as nn
+from positional_encodings.torch_encodings import PositionalEncoding2D
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+import os
+import glob
+import json
+from time import time
+from datetime import datetime
+from torch_geometric.data import Data as geo_Data
+from torch_geometric.loader import DataLoader as geo_DataLoader
+import numpy as np
+import pandas as pd
+import pathlib
+import shutil
+import wget
+import gzip
+import subprocess
+from combat.pycombat import pycombat
+import scanpy as sc
+from sklearn.preprocessing import StandardScaler
+import squidpy as sq
+
+# Get the path of the spared database
+SPARED_PATH = pathlib.Path(__file__).parent
 
 
 def get_slide_from_collection(self, collection: ad.AnnData,  slide: str) -> ad.AnnData:
@@ -22,10 +52,60 @@ def get_slide_from_collection(self, collection: ad.AnnData,  slide: str) -> ad.A
     return slide_adata
 
 
-def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
+def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
+    """
+    This function computes the expression fraction for each gene in the dataset. Internally it gets the
+    expression fraction for each slide and then takes the minimum across all the slides.
+    """
+    # Get the unique slide ids
+    slide_ids = adata.obs['slide_id'].unique()
+
+    # Define zeros matrix of shape (n_genes, n_slides)
+    exp_frac = np.zeros((adata.n_vars, len(slide_ids)))
+
+    # Iterate over the slide ids
+    for i, slide_id in enumerate(slide_ids):
+        # Get current slide adata
+        slide_adata = adata[adata.obs['slide_id'] == slide_id, :]
+        # Get current slide expression fraction
+        curr_exp_frac = np.squeeze(np.asarray((slide_adata.X > 0).sum(axis=0) / slide_adata.n_obs))
+        # Add current slide expression fraction to the matrix
+        exp_frac[:, i] = curr_exp_frac
+    
+    # Compute the minimum expression fraction for each gene across all the slides
+    min_exp_frac = np.min(exp_frac, axis=1)
+
+    # Add the minimum expression fraction to the var dataframe of the slide collection
+    adata.var['exp_frac'] = min_exp_frac
+
+    # Return the adata
+    return adata
+
+
+def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
+    """
+    This function computes the global expression fraction for each gene in the dataset.
+
+    Args:
+        adata (ad.AnnData): An unfiltered and unprocessed (in raw counts) slide collection.
+
+    Returns:
+        ad.AnnData: The same slide collection with the glob_exp_frac added to the var dataframe.
+    """
+    # Get global expression fraction
+    glob_exp_frac = np.squeeze(np.asarray((adata.X > 0).sum(axis=0) / adata.n_obs))
+
+    # Add the global expression fraction to the var dataframe of the slide collection
+    adata.var['glob_exp_frac'] = glob_exp_frac
+
+    # Return the adata
+    return adata
+
+
+def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     """
     This function takes a completely unfiltered and unprocessed (in raw counts) slide collection and filters it
-    (both samples and genes) according to self.param_dict. A summary list of the steps is the following:
+    (both samples and genes) according to the param_dict argument. A summary list of the steps is the following:
 
         1. Filter out observations with total_counts outside the range [cell_min_counts, cell_max_counts].
            This filters out low quality observations not suitable for analysis.
@@ -48,61 +128,12 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
 
     Args:
         adata (ad.AnnData): An unfiltered and unprocessed (in raw counts) slide collection. Has the patches in obsm.
+        param_dict (dict): Dictionary that contains filtering and processing parameters.
+        # TODO: Set a default param_dict?
 
     Returns:
         ad.AnnData: The filtered adata collection. Patches have not been reshaped here.
     """
-
-    ### Define auxiliary functions
-
-    def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-        """
-        This function computes the expression fraction for each gene in the dataset. Internally it gets the
-        expression fraction for each slide and then takes the minimum across all the slides.
-        """
-        # Get the unique slide ids
-        slide_ids = adata.obs['slide_id'].unique()
-
-        # Define zeros matrix of shape (n_genes, n_slides)
-        exp_frac = np.zeros((adata.n_vars, len(slide_ids)))
-
-        # Iterate over the slide ids
-        for i, slide_id in enumerate(slide_ids):
-            # Get current slide adata
-            slide_adata = adata[adata.obs['slide_id'] == slide_id, :]
-            # Get current slide expression fraction
-            curr_exp_frac = np.squeeze(np.asarray((slide_adata.X > 0).sum(axis=0) / slide_adata.n_obs))
-            # Add current slide expression fraction to the matrix
-            exp_frac[:, i] = curr_exp_frac
-        
-        # Compute the minimum expression fraction for each gene across all the slides
-        min_exp_frac = np.min(exp_frac, axis=1)
-
-        # Add the minimum expression fraction to the var dataframe of the slide collection
-        adata.var['exp_frac'] = min_exp_frac
-
-        # Return the adata
-        return adata
-
-    def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-        """
-        This function computes the global expression fraction for each gene in the dataset.
-
-        Args:
-            adata (ad.AnnData): An unfiltered and unprocessed (in raw counts) slide collection.
-
-        Returns:
-            ad.AnnData: The same slide collection with the glob_exp_frac added to the var dataframe.
-        """
-        # Get global expression fraction
-        glob_exp_frac = np.squeeze(np.asarray((adata.X > 0).sum(axis=0) / adata.n_obs))
-
-        # Add the global expression fraction to the var dataframe of the slide collection
-        adata.var['glob_exp_frac'] = glob_exp_frac
-
-        # Return the adata
-        return adata
-
 
     # Start tracking time
     print('Starting data filtering...')
@@ -116,7 +147,7 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
 
     # Find indexes of cells with total_counts outside the range [cell_min_counts, cell_max_counts]
     sample_counts = np.squeeze(np.asarray(adata.X.sum(axis=1)))
-    bool_valid_samples = (sample_counts > self.param_dict['cell_min_counts']) & (sample_counts < self.param_dict['cell_max_counts'])
+    bool_valid_samples = (sample_counts > param_dict['cell_min_counts']) & (sample_counts < param_dict['cell_max_counts'])
     valid_samples = adata.obs_names[bool_valid_samples]
 
     # Subset the adata to keep only the valid samples
@@ -130,12 +161,12 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
     adata = get_glob_exp_frac(adata)
     
     # If no wildcard genes are specified then filter genes based in min_exp_frac and total counts
-    if self.param_dict['wildcard_genes'] == 'None':
+    if param_dict['wildcard_genes'] == 'None':
         
         gene_counts = np.squeeze(np.asarray(adata.X.sum(axis=0)))
                     
         # Find indexes of genes with total_counts inside the range [gene_min_counts, gene_max_counts]
-        bool_valid_gene_counts = (gene_counts > self.param_dict['gene_min_counts']) & (gene_counts < self.param_dict['gene_max_counts'])
+        bool_valid_gene_counts = (gene_counts > param_dict['gene_min_counts']) & (gene_counts < param_dict['gene_max_counts'])
         # Get the valid genes
         valid_genes = adata.var_names[bool_valid_gene_counts]
         
@@ -149,7 +180,7 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
         df_exp['vol_real_data'] = df_exp['glob_exp_frac'].cumsum() / (df_exp['Row'])      
         df_exp = df_exp.drop(['Row'], axis=1)
         # Get the valid genes
-        num_genes = np.where(df_exp['vol_real_data'] >= self.param_dict['real_data_percentage'])[0][-1]
+        num_genes = np.where(df_exp['vol_real_data'] >= param_dict['real_data_percentage'])[0][-1]
         valid_genes = df_exp.iloc[:num_genes + 1]['gene_ids']
         # Subset the adata to keep only the valid genes
         adata = adata[:, valid_genes].copy()
@@ -157,7 +188,7 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
     # If there are wildcard genes then read them and subset the dataset to just use them
     else:
         # Read valid wildcard genes
-        genes = pd.read_csv(self.param_dict['wildcard_genes'], sep=" ", header=None, index_col=False)
+        genes = pd.read_csv(param_dict['wildcard_genes'], sep=" ", header=None, index_col=False)
         # Turn wildcard genes to pandas Index object
         valid_genes = pd.Index(genes.iloc[:, 0], name='')
         # Subset processed adata with wildcard genes
@@ -184,7 +215,501 @@ def filter_dataset(self, adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 
-def process_dataset(self, adata: ad.AnnData) -> ad.AnnData:
+### Define data processing functions:
+
+def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
+    """
+    This function apply tpm normalization to an AnnData object. It also removes genes that are not fount in the gtf annotation file.
+    The counts of the anndata are taken from the layer 'from_layer' and the results are stored in the layer 'to_layer'.
+    Args:
+        adata (ad.Anndata): The Anndata object to normalize.
+        from_layer (str): The layer to take the counts from.
+        to_layer (str): The layer to store the results of the normalization.
+    Returns:
+        ad.Anndata: The normalized Anndata object with TPM values in the .layers[to_layer] attribute.
+    """
+    
+    # Get the number of genes before filtering
+    initial_genes = adata.shape[1]
+
+    # Automatically download the gtf annotation file if it is not already downloaded
+    if not os.path.exists(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz')):
+        print('Automatically downloading gtf annotation file...')
+        os.makedirs(os.path.join(SPARED_PATH, 'data', 'annotations'), exist_ok=True)
+        wget.download(
+            'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz',
+            out = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz'))
+
+    # Define gtf path
+    gtf_path = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf')
+
+    # Unzip the data in annotations folder if it is not already unzipped
+    if not os.path.exists(gtf_path):
+        with gzip.open(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz'), 'rb') as f_in:
+            with open(gtf_path, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    # Define gtf mouse path
+    gtf_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf')
+
+    # Unzip the data in annotations folder if it is not already unzipped
+    if not os.path.exists(gtf_path_mouse):            
+        with gzip.open(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf.gz'), 'rb') as f_in:
+            with open(gtf_path_mouse, 'wb') as f_out:
+                shutil.copyfileobj(f_in, f_out)
+
+    # Obtain a txt with gene lengths
+    gene_length_path = os.path.join(SPARED_PATH, 'data', 'annotations', 'gene_length.txt')
+    if not os.path.exists(gene_length_path):
+        command = f'python {os.path.join(SPARED_PATH, "gtftools.py")} -l {gene_length_path} {gtf_path}'
+        command_list = command.split(' ')
+        subprocess.call(command_list)   
+
+    gene_length_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gene_length_mouse.txt')
+    if not os.path.exists(gene_length_path_mouse):
+        command = f'python {os.path.join(SPARED_PATH, "gtftools.py")} -l {gene_length_path_mouse} {gtf_path_mouse}'
+        command_list = command.split(' ')
+        subprocess.call(command_list) 
+
+    # Upload the gene lengths
+    if "mouse" in dataset.lower():
+        glength_df = pd.read_csv(gene_length_path_mouse, delimiter='\t', usecols=['gene', 'merged'])
+    else:
+        glength_df = pd.read_csv(gene_length_path, delimiter='\t', usecols=['gene', 'merged'])
+
+    # For the gene column, remove the version number
+    glength_df['gene'] = glength_df['gene'].str.split('.').str[0]
+
+    # Drop gene duplicates. NOTE: This only eliminates 40/60k genes so it is not a big deal
+    glength_df = glength_df.drop_duplicates(subset=['gene'])
+
+    # Find the genes that are in the gtf annotation file
+    common_genes=list(set(adata.var_names)&set(glength_df["gene"]))
+
+    # Subset both adata and glength_df to keep only the common genes
+    adata = adata[:, common_genes].copy()
+    glength_df = glength_df[glength_df["gene"].isin(common_genes)].copy()
+
+    # Reindex the glength_df to genes
+    glength_df = glength_df.set_index('gene')
+    # Reindex glength_df to adata.var_names
+    glength_df = glength_df.reindex(adata.var_names)
+    # Assert indexes of adata.var and glength_df are the same
+    assert (adata.var.index == glength_df.index).all()
+
+    # Add gene lengths to adata.var
+    adata.var['gene_length'] = glength_df['merged'].values
+
+    # Divide each column of the counts matrix by the gene length. Save the result in layer "to_layer"
+    adata.layers[to_layer] = adata.layers[from_layer] / adata.var['gene_length'].values.reshape(1, -1)
+    # Make that each row sums to 1e6
+    adata.layers[to_layer] = np.nan_to_num(adata.layers[to_layer] / (np.sum(adata.layers[to_layer], axis=1).reshape(-1, 1)/1e6))
+    # Pass layer to np.array
+    adata.layers[to_layer] = np.array(adata.layers[to_layer])
+
+    # Print the number of genes that were not found in the gtf annotation file
+    failed_genes = initial_genes - adata.n_vars
+    print(f'Number of genes not found in GTF file by TPM normalization: {initial_genes - adata.n_vars} out of {initial_genes} ({100*failed_genes/initial_genes:.2f}%) ({adata.n_vars} remaining)')
+
+    # Return the transformed AnnData object
+    return adata
+
+def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
+    """
+    Simple wrapper around sc.pp.log1p to transform data from adata.layers[from_layer] with log1p (base 2)
+    and save it in adata.layers[to_layer].
+
+    Args:
+        adata (ad.AnnData): The AnnData object to transform.
+        from_layer (str): The layer to take the data from.
+        to_layer (str): The layer to store the results of the transformation.
+
+    Returns:
+        ad.AnnData: The transformed AnnData object with log1p transformed data in adata.layers[to_layer].
+    """
+
+    # Transform the data with log1p
+    transformed_adata = sc.pp.log1p(adata, base= 2.0, layer=from_layer, copy=True)
+
+    # Add the log1p transformed data to adata.layers[to_layer]
+    adata.layers[to_layer] = transformed_adata.layers[from_layer]
+
+    # Return the transformed AnnData object
+    return adata
+
+def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
+    """
+    This wrapper function that computes the adaptive median filter for all the slides in the collection and then concatenates the results
+    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper function.
+
+    Args:
+        collection (ad.AnnData): The AnnData collection to process. Contains all the slides.
+        from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
+        to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
+        n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                                used to compute the spatial neighbors and only true for visium datasets.
+
+    Returns:
+        ad.AnnData: The processed AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
+    """
+    
+    ### Define function to get spatial neighbors in an AnnData object
+    def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
+        """
+        This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
+        a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
+        and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
+        inside a n_hops neighborhood of the observation.
+
+        Args:
+            adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
+            n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
+            hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                                    used to compute the spatial neighbors and only true for visium datasets.
+
+        Returns:
+            dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
+        """
+        # Compute spatial_neighbors
+        if hex_geometry:
+            sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
+        else:
+            sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid STNet dataset case
+
+        # Get the adjacency matrix
+        adj_matrix = adata.obsp['spatial_connectivities']
+
+        # Define power matrix
+        power_matrix = adj_matrix.copy()
+        # Define the output matrix
+        output_matrix = adj_matrix.copy()
+
+        # Iterate through the hops
+        for i in range(n_hops-1):
+            # Compute the next hop
+            power_matrix = power_matrix * adj_matrix
+            # Add the next hop to the output matrix
+            output_matrix = output_matrix + power_matrix
+
+        # Zero out the diagonal
+        output_matrix.setdiag(0)
+        # Threshold the matrix to 0 and 1
+        output_matrix = output_matrix.astype(bool).astype(int)
+
+        # Define neighbors dict
+        neighbors_dict_index = {}
+
+        # Iterate through the rows of the output matrix
+        for i in range(output_matrix.shape[0]):
+            # Get the non-zero elements of the row
+            non_zero_elements = output_matrix[i].nonzero()[1]
+            # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
+            neighbors_dict_index[i] = [i] + list(non_zero_elements)
+        
+        # Return the neighbors dict
+        return neighbors_dict_index
+
+    ### Define cleaning function for single slide:
+    def adaptive_median_filter_pepper(adata: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
+        """
+        This function computes the adaptive median filter for pairs (obs, gene) with a zero value (peper noise) in the layer 'from_layer' and
+        stores the result in the layer 'to_layer'. The max window size is a neighborhood of n_hops defined by the conectivity hex_geometry
+        inputed by parameter. This means the number of concentric rings in a graph to take into account to compute the median.
+
+        Args:
+            adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
+            from_layer (str): The layer to compute the adaptive median filter from.
+            to_layer (str): The layer to store the results of the adaptive median filter.
+            n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
+            hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                                used to compute the spatial neighbors and only true for visium datasets.
+
+        Returns:
+            ad.AnnData: The AnnData object with the results of the adaptive median filter stored in the layer 'to_layer'.
+        """
+        # Define original expression matrix
+        original_exp = adata.layers[from_layer]    
+
+        medians = np.zeros((adata.n_obs, n_hops, adata.n_vars))
+
+        # Iterate over the hops
+        for i in range(1, n_hops+1):
+            
+            # Get dictionary of neighbors for a given number of hops
+            curr_neighbors_dict = get_spatial_neighbors(adata, i, hex_geometry)
+
+            # Iterate over observations
+            for j in range(adata.n_obs):
+                # Get the list of indexes of the neighbors of the j'th observation
+                neighbors_idx = curr_neighbors_dict[j]
+                # Get the expression matrix of the neighbors
+                neighbor_exp = original_exp[neighbors_idx, :]
+                # Get the median of the expression matrix
+                median = np.median(neighbor_exp, axis=0)
+
+                # Store the median in the medians matrix
+                medians[j, i-1, :] = median
+        
+        # Also robustly compute the median of the non-zero values for each gene
+        general_medians = np.apply_along_axis(lambda v: np.median(v[np.nonzero(v)]), 0, original_exp)
+        general_medians[np.isnan(general_medians)] = 0.0 # Correct for possible nans
+
+        # Define corrected expression matrix
+        corrected_exp = np.zeros_like(original_exp)
+
+        ### Now that all the possible medians are computed. We code for each observation:
+        
+        # Note: i indexes over observations, j indexes over genes
+        for i in range(adata.n_obs):
+            for j in range(adata.n_vars):
+                
+                # Get real expression value
+                z_xy = original_exp[i, j]
+
+                # Only apply adaptive median filter if real expression is zero
+                if z_xy != 0:
+                    corrected_exp[i,j] = z_xy
+                    continue
+                
+                else:
+
+                    # Definie initial stage and window size
+                    current_stage = 'A'
+                    k = 0
+
+                    while True:
+
+                        # Stage A:
+                        if current_stage == 'A':
+                            
+                            # Get median value
+                            z_med = medians[i, k, j]
+
+                            # If median is not zero then go to stage B
+                            if z_med != 0:
+                                current_stage = 'B'
+                                continue
+                            # If median is zero, then increase window and repeat stage A
+                            else:
+                                k += 1
+                                if k < n_hops:
+                                    current_stage = 'A'
+                                    continue
+                                # If we have the biggest window size, then return the median
+                                else:
+                                    # NOTE: Big modification to the median filter here. Be careful
+                                    corrected_exp[i,j] = general_medians[j]
+                                    break
+
+
+                        # Stage B:
+                        elif current_stage == 'B':
+                            
+                            # Get window median
+                            z_med = medians[i, k, j]
+
+                            # If real expression is not peper then return it
+                            if z_xy != 0:
+                                corrected_exp[i,j] = z_xy
+                                break
+                            # If real expression is peper, then return the median
+                            else:
+                                corrected_exp[i,j] = z_med
+                                break
+
+        # Add corrected expression to adata
+        adata.layers[to_layer] = corrected_exp
+
+        return adata
+
+    # Print message
+    print('Applying adaptive median filter to collection...')
+
+    # Get the unique slides
+    slides = np.unique(collection.obs['slide_id'])
+
+    # Define the corrected adata list
+    corrected_adata_list = []
+
+    # Iterate over the slides
+    for slide in tqdm(slides):
+        # Get the adata of the slide
+        adata = collection[collection.obs['slide_id'] == slide].copy()
+        # Apply adaptive median filter
+        adata = adaptive_median_filter_pepper(adata, from_layer, to_layer, n_hops, hex_geometry)
+        # Append to the corrected adata list
+        corrected_adata_list.append(adata)
+    
+    # Concatenate the corrected adata list
+    corrected_collection = ad.concat(corrected_adata_list, join='inner', merge='same')
+    # Restore the uns attribute
+    corrected_collection.uns = collection.uns
+
+    return corrected_collection
+
+def combat_transformation(adata: ad.AnnData, batch_key: str, from_layer: str, to_layer: str) -> ad.AnnData:
+    """
+    Batch correction using pycombat. The batches are defined by the batch_key column in adata.obs. The input data for
+    the batch correction is adata.layers[from_layer] and the output is stored in adata.layers[to_layer].
+
+    Args:
+        adata (ad.AnnData): The AnnData object to transform. Must have log1p transformed data in adata.layers[from_layer].
+        batch_key (str): The column in adata.obs that defines the batches.
+        from_layer (str): The layer to take the data from.
+        to_layer (str): The layer to store the results of the transformation.
+
+    Returns:
+        ad.AnnData: The transformed AnnData object with batch corrected data in adata.layers[to_layer].
+    """
+    # Get expression matrix dataframe
+    df = adata.to_df(layer = from_layer).T
+    batch_list = adata.obs[batch_key].values.tolist()
+
+    # Apply pycombat batch correction
+    corrected_df = pycombat(df, batch_list, par_prior=True)
+
+    # Assign batch corrected expression to .layers[to_layer] attribute
+    adata.layers[to_layer] = corrected_df.T
+
+    return adata
+
+def get_deltas(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
+    """
+    Compute the deviations from the mean expression of each gene in adata.layers[from_layer] and save them
+    in adata.layers[to_layer]. Also add the mean expression of each gene to adata.var[f'{from_layer}_avg_exp'].
+
+    Args:
+        adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
+        from_layer (str): The layer to take the data from.
+        to_layer (str): The layer to store the results of the transformation.
+
+    Returns:
+        ad.AnnData: The updated AnnData object with the deltas and mean expression.
+    """
+
+    # Get the expression matrix of both train and global data
+    glob_expression = adata.to_df(layer=from_layer)
+    train_expression = adata[adata.obs['split'] == 'train'].to_df(layer=from_layer)
+
+    # Define scaler
+    scaler = StandardScaler(with_mean=True, with_std=False)
+
+    # Fit the scaler to the train data
+    scaler = scaler.fit(train_expression)
+    
+    # Get the centered expression matrix of the global data
+    centered_expression = scaler.transform(glob_expression)
+
+    # Add the deltas to adata.layers[to_layer]	
+    adata.layers[to_layer] = centered_expression
+
+    # Add the mean expression to adata.var[f'{from_layer}_avg_exp']
+    adata.var[f'{from_layer}_avg_exp'] = scaler.mean_
+
+    # Return the updated AnnData object
+    return adata
+
+def compute_moran(adata: ad.AnnData, hex_geometry: bool, from_layer: str) -> ad.AnnData:
+    """
+    This function cycles over each slide in the adata object and computes the Moran's I for each gene.
+    After that, it averages the Moran's I for each gene across all slides and saves it in adata.var[f'{from_layer}_moran'].
+    The input data for the Moran's I computation is adata.layers[from_layer].
+
+    Args:
+        adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
+        from_layer (str): The key in adata.layers with the values used to compute Moran's I.
+        hex_geometry (bool): Whether the data is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I.
+
+    Returns:
+        ad.AnnData: The updated AnnData object with the average Moran's I for each gene in adata.var[f'{from_layer}_moran'].
+    """
+    print(f'Computing Moran\'s I for each gene over each slide using data of layer {from_layer}...')
+
+    # Get the unique slide_ids
+    slide_ids = adata.obs['slide_id'].unique()
+
+    # Create a dataframe to store the Moran's I for each slide
+    moran_df = pd.DataFrame(index = adata.var.index, columns=slide_ids)
+
+    # Cycle over each slide
+    for slide in slide_ids:
+        # Get the annData for the current slide
+        slide_adata = get_slide_from_collection(adata, slide)
+        # Compute spatial_neighbors
+        if hex_geometry:
+            # Hexagonal visium case
+            sq.gr.spatial_neighbors(slide_adata, coord_type='generic', n_neighs=6)
+        else:
+            # Grid STNet dataset case
+            sq.gr.spatial_neighbors(slide_adata, coord_type='grid', n_neighs=8)
+        # Compute Moran's I
+        sq.gr.spatial_autocorr(
+            slide_adata,
+            mode="moran",
+            layer=from_layer,
+            genes=slide_adata.var_names,
+            n_perms=1000,
+            n_jobs=-1,
+            seed=42
+        )
+
+        # Get moran I
+        moranI = slide_adata.uns['moranI']['I']
+        # Reindex moranI to match the order of the genes in the adata object
+        moranI = moranI.reindex(adata.var.index)
+
+        # Add the Moran's I to the dataframe
+        moran_df[slide] = moranI
+
+    # Compute the average Moran's I for each gene
+    adata.var[f'{from_layer}_moran'] = moran_df.mean(axis=1)
+
+    # Return the updated AnnData object
+    return adata
+
+def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
+    """
+    This function filters the genes in adata.var by the Moran's I. It keeps the n_keep genes with the highest Moran's I.
+    The Moran's I values will be selected from adata.var[f'{from_layer}_moran'].
+
+    Args:
+        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'].
+        n_keep (int): The number of genes to keep.
+        from_layer (str): Layer for which the Moran's I was computed the key in adata.var is f'{from_layer}_moran'.
+
+    Returns:
+        ad.AnnData: The updated AnnData object with the filtered genes.
+    """
+
+    # Assert that the number of genes is at least n_keep
+    assert adata.n_vars >= n_keep, f'The number of genes in the AnnData object is {adata.n_vars}, which is less than n_keep ({n_keep}).'
+
+    # Select amount of top genes depending on the available amount if n_keep is not specified
+    if n_keep <= 0:
+        n_keep = round(adata.n_vars * 0.25, 0)
+        if np.abs(n_keep - 128) > np.abs(n_keep - 32):
+            n_keep = 32
+        else:
+            n_keep = 128
+
+    print(f"Filtering genes by Moran's I. Keeping top {n_keep} genes.")
+    
+    # Sort the genes by Moran's I
+    sorted_genes = adata.var.sort_values(by=f'{from_layer}_moran', ascending=False).index
+
+    # Get genes to keep list
+    genes_to_keep = list(sorted_genes[:n_keep])
+
+    # Filter the genes andata object
+    adata = adata[:, genes_to_keep]
+
+    # Return the updated AnnData object
+    return adata
+
+def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
+    # FIXME: "dataset" parameter added - check for possible bugs
+    # FIXME: hex_geometry default set to True (?)
     """
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
     (adata.X). The processing pipeline is the following:
@@ -193,7 +718,7 @@ def process_dataset(self, adata: ad.AnnData) -> ad.AnnData:
         2. Transform the data with log1p (log1p layer)
         3. Denoise the data with the adaptive median filter (d_log1p layer)
         4. Compute moran I for each gene in each slide and average moranI across slides (add results to .var['d_log1p_moran'])
-        5. Filter dataset to keep the top self.param_dict['top_moran_genes'] genes with highest moran I.
+        5. Filter dataset to keep the top param_dict['top_moran_genes'] genes with highest moran I.
         6. Perform ComBat batch correction if specified by the 'combat_key' parameter (c_d_log1p layer)
         7. Compute the deltas from the mean for each gene (computed from log1p layer and c_d_log1p layer if batch correction was performed)
         8. Add a binary mask layer specifying valid observations for metric computation.
@@ -201,505 +726,16 @@ def process_dataset(self, adata: ad.AnnData) -> ad.AnnData:
 
     Args:
         adata (ad.AnnData): The AnnData object to process. Must be already filtered.
+        param_dict (dict): Dictionary that contains filtering and processing parameters.
+        # TODO: Set a default param_dict?
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                            used to compute the spatial neighbors and only true for visium datasets.
 
     Returns:
         ad.Anndata: The processed AnnData object with all the layers and results added.
     """
 
-    ### Define processing functions:
-
-    def tpm_normalization(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
-        """
-        This function apply tpm normalization to an AnnData object. It also removes genes that are not fount in the gtf annotation file.
-        The counts of the anndata are taken from the layer 'from_layer' and the results are stored in the layer 'to_layer'.
-        Args:
-            adata (ad.Anndata): The Anndata object to normalize.
-            from_layer (str): The layer to take the counts from.
-            to_layer (str): The layer to store the results of the normalization.
-        Returns:
-            ad.Anndata: The normalized Anndata object with TPM values in the .layers[to_layer] attribute.
-        """
-        
-        # Get the number of genes before filtering
-        initial_genes = adata.shape[1]
-
-        # Automatically download the gtf annotation file if it is not already downloaded
-        if not os.path.exists(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz')):
-            print('Automatically downloading gtf annotation file...')
-            os.makedirs(os.path.join(SPARED_PATH, 'data', 'annotations'), exist_ok=True)
-            wget.download(
-                'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz',
-                out = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz'))
-
-        # Define gtf path
-        gtf_path = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf')
-
-        # Unzip the data in annotations folder if it is not already unzipped
-        if not os.path.exists(gtf_path):
-            with gzip.open(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz'), 'rb') as f_in:
-                with open(gtf_path, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-
-        # Define gtf mouse path
-        gtf_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf')
-
-        # Unzip the data in annotations folder if it is not already unzipped
-        if not os.path.exists(gtf_path_mouse):            
-            with gzip.open(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf.gz'), 'rb') as f_in:
-                with open(gtf_path_mouse, 'wb') as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-
-        # Obtain a txt with gene lengths
-        gene_length_path = os.path.join(SPARED_PATH, 'data', 'annotations', 'gene_length.txt')
-        if not os.path.exists(gene_length_path):
-            command = f'python {os.path.join(SPARED_PATH, "gtftools.py")} -l {gene_length_path} {gtf_path}'
-            command_list = command.split(' ')
-            subprocess.call(command_list)   
-
-        gene_length_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gene_length_mouse.txt')
-        if not os.path.exists(gene_length_path_mouse):
-            command = f'python {os.path.join(SPARED_PATH, "gtftools.py")} -l {gene_length_path_mouse} {gtf_path_mouse}'
-            command_list = command.split(' ')
-            subprocess.call(command_list) 
-
-        # Upload the gene lengths
-        if "mouse" in self.dataset.lower():
-            glength_df = pd.read_csv(gene_length_path_mouse, delimiter='\t', usecols=['gene', 'merged'])
-        else:
-            glength_df = pd.read_csv(gene_length_path, delimiter='\t', usecols=['gene', 'merged'])
-
-        # For the gene column, remove the version number
-        glength_df['gene'] = glength_df['gene'].str.split('.').str[0]
-
-        # Drop gene duplicates. NOTE: This only eliminates 40/60k genes so it is not a big deal
-        glength_df = glength_df.drop_duplicates(subset=['gene'])
-
-        # Find the genes that are in the gtf annotation file
-        common_genes=list(set(adata.var_names)&set(glength_df["gene"]))
-
-        # Subset both adata and glength_df to keep only the common genes
-        adata = adata[:, common_genes].copy()
-        glength_df = glength_df[glength_df["gene"].isin(common_genes)].copy()
-
-        # Reindex the glength_df to genes
-        glength_df = glength_df.set_index('gene')
-        # Reindex glength_df to adata.var_names
-        glength_df = glength_df.reindex(adata.var_names)
-        # Assert indexes of adata.var and glength_df are the same
-        assert (adata.var.index == glength_df.index).all()
-
-        # Add gene lengths to adata.var
-        adata.var['gene_length'] = glength_df['merged'].values
-
-        # Divide each column of the counts matrix by the gene length. Save the result in layer "to_layer"
-        adata.layers[to_layer] = adata.layers[from_layer] / adata.var['gene_length'].values.reshape(1, -1)
-        # Make that each row sums to 1e6
-        adata.layers[to_layer] = np.nan_to_num(adata.layers[to_layer] / (np.sum(adata.layers[to_layer], axis=1).reshape(-1, 1)/1e6))
-        # Pass layer to np.array
-        adata.layers[to_layer] = np.array(adata.layers[to_layer])
-
-        # Print the number of genes that were not found in the gtf annotation file
-        failed_genes = initial_genes - adata.n_vars
-        print(f'Number of genes not found in GTF file by TPM normalization: {initial_genes - adata.n_vars} out of {initial_genes} ({100*failed_genes/initial_genes:.2f}%) ({adata.n_vars} remaining)')
-
-        # Return the transformed AnnData object
-        return adata
-
-    def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
-        """
-        Simple wrapper around sc.pp.log1p to transform data from adata.layers[from_layer] with log1p (base 2)
-        and save it in adata.layers[to_layer].
-
-        Args:
-            adata (ad.AnnData): The AnnData object to transform.
-            from_layer (str): The layer to take the data from.
-            to_layer (str): The layer to store the results of the transformation.
-
-        Returns:
-            ad.AnnData: The transformed AnnData object with log1p transformed data in adata.layers[to_layer].
-        """
-
-        # Transform the data with log1p
-        transformed_adata = sc.pp.log1p(adata, base= 2.0, layer=from_layer, copy=True)
-
-        # Add the log1p transformed data to adata.layers[to_layer]
-        adata.layers[to_layer] = transformed_adata.layers[from_layer]
-
-        # Return the transformed AnnData object
-        return adata
-
-    def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
-        """
-        This wrapper function that computes the adaptive median filter for all the slides in the collection and then concatenates the results
-        into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper function.
-
-        Args:
-            collection (ad.AnnData): The AnnData collection to process. Contains all the slides.
-            from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
-            to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
-            n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-            hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                 used to compute the spatial neighbors and only true for visium datasets.
-
-        Returns:
-            ad.AnnData: The processed AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
-        """
-        
-        ### Define function to get spatial neighbors in an AnnData object
-        def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
-            """
-            This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
-            a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
-            and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-            inside a n_hops neighborhood of the observation.
-
-            Args:
-                adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
-                n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
-                hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                     used to compute the spatial neighbors and only true for visium datasets.
-
-            Returns:
-                dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
-            """
-            # Compute spatial_neighbors
-            if hex_geometry:
-                sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
-            else:
-                sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid STNet dataset case
-
-            # Get the adjacency matrix
-            adj_matrix = adata.obsp['spatial_connectivities']
-
-            # Define power matrix
-            power_matrix = adj_matrix.copy()
-            # Define the output matrix
-            output_matrix = adj_matrix.copy()
-
-            # Iterate through the hops
-            for i in range(n_hops-1):
-                # Compute the next hop
-                power_matrix = power_matrix * adj_matrix
-                # Add the next hop to the output matrix
-                output_matrix = output_matrix + power_matrix
-
-            # Zero out the diagonal
-            output_matrix.setdiag(0)
-            # Threshold the matrix to 0 and 1
-            output_matrix = output_matrix.astype(bool).astype(int)
-
-            # Define neighbors dict
-            neighbors_dict_index = {}
-
-            # Iterate through the rows of the output matrix
-            for i in range(output_matrix.shape[0]):
-                # Get the non-zero elements of the row
-                non_zero_elements = output_matrix[i].nonzero()[1]
-                # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
-                neighbors_dict_index[i] = [i] + list(non_zero_elements)
-            
-            # Return the neighbors dict
-            return neighbors_dict_index
-
-        ### Define cleaning function for single slide:
-        def adaptive_median_filter_pepper(adata: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
-            """
-            This function computes the adaptive median filter for pairs (obs, gene) with a zero value (peper noise) in the layer 'from_layer' and
-            stores the result in the layer 'to_layer'. The max window size is a neighborhood of n_hops defined by the conectivity hex_geometry
-            inputed by parameter. This means the number of concentric rings in a graph to take into account to compute the median.
-
-            Args:
-                adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
-                from_layer (str): The layer to compute the adaptive median filter from.
-                to_layer (str): The layer to store the results of the adaptive median filter.
-                n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-                hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                    used to compute the spatial neighbors and only true for visium datasets.
-
-            Returns:
-                ad.AnnData: The AnnData object with the results of the adaptive median filter stored in the layer 'to_layer'.
-            """
-            # Define original expression matrix
-            original_exp = adata.layers[from_layer]    
-
-            medians = np.zeros((adata.n_obs, n_hops, adata.n_vars))
-
-            # Iterate over the hops
-            for i in range(1, n_hops+1):
-                
-                # Get dictionary of neighbors for a given number of hops
-                curr_neighbors_dict = get_spatial_neighbors(adata, i, hex_geometry)
-
-                # Iterate over observations
-                for j in range(adata.n_obs):
-                    # Get the list of indexes of the neighbors of the j'th observation
-                    neighbors_idx = curr_neighbors_dict[j]
-                    # Get the expression matrix of the neighbors
-                    neighbor_exp = original_exp[neighbors_idx, :]
-                    # Get the median of the expression matrix
-                    median = np.median(neighbor_exp, axis=0)
-
-                    # Store the median in the medians matrix
-                    medians[j, i-1, :] = median
-            
-            # Also robustly compute the median of the non-zero values for each gene
-            general_medians = np.apply_along_axis(lambda v: np.median(v[np.nonzero(v)]), 0, original_exp)
-            general_medians[np.isnan(general_medians)] = 0.0 # Correct for possible nans
-
-            # Define corrected expression matrix
-            corrected_exp = np.zeros_like(original_exp)
-
-            ### Now that all the possible medians are computed. We code for each observation:
-            
-            # Note: i indexes over observations, j indexes over genes
-            for i in range(adata.n_obs):
-                for j in range(adata.n_vars):
-                    
-                    # Get real expression value
-                    z_xy = original_exp[i, j]
-
-                    # Only apply adaptive median filter if real expression is zero
-                    if z_xy != 0:
-                        corrected_exp[i,j] = z_xy
-                        continue
-                    
-                    else:
-
-                        # Definie initial stage and window size
-                        current_stage = 'A'
-                        k = 0
-
-                        while True:
-
-                            # Stage A:
-                            if current_stage == 'A':
-                                
-                                # Get median value
-                                z_med = medians[i, k, j]
-
-                                # If median is not zero then go to stage B
-                                if z_med != 0:
-                                    current_stage = 'B'
-                                    continue
-                                # If median is zero, then increase window and repeat stage A
-                                else:
-                                    k += 1
-                                    if k < n_hops:
-                                        current_stage = 'A'
-                                        continue
-                                    # If we have the biggest window size, then return the median
-                                    else:
-                                        # NOTE: Big modification to the median filter here. Be careful
-                                        corrected_exp[i,j] = general_medians[j]
-                                        break
-
-
-                            # Stage B:
-                            elif current_stage == 'B':
-                                
-                                # Get window median
-                                z_med = medians[i, k, j]
-
-                                # If real expression is not peper then return it
-                                if z_xy != 0:
-                                    corrected_exp[i,j] = z_xy
-                                    break
-                                # If real expression is peper, then return the median
-                                else:
-                                    corrected_exp[i,j] = z_med
-                                    break
-
-            # Add corrected expression to adata
-            adata.layers[to_layer] = corrected_exp
-
-            return adata
-
-        # Print message
-        print('Applying adaptive median filter to collection...')
-
-        # Get the unique slides
-        slides = np.unique(collection.obs['slide_id'])
-
-        # Define the corrected adata list
-        corrected_adata_list = []
-
-        # Iterate over the slides
-        for slide in tqdm(slides):
-            # Get the adata of the slide
-            adata = collection[collection.obs['slide_id'] == slide].copy()
-            # Apply adaptive median filter
-            adata = adaptive_median_filter_pepper(adata, from_layer, to_layer, n_hops, hex_geometry)
-            # Append to the corrected adata list
-            corrected_adata_list.append(adata)
-        
-        # Concatenate the corrected adata list
-        corrected_collection = ad.concat(corrected_adata_list, join='inner', merge='same')
-        # Restore the uns attribute
-        corrected_collection.uns = collection.uns
-
-        return corrected_collection
-
-    def combat_transformation(adata: ad.AnnData, batch_key: str, from_layer: str, to_layer: str) -> ad.AnnData:
-        """
-        Batch correction using pycombat. The batches are defined by the batch_key column in adata.obs. The input data for
-        the batch correction is adata.layers[from_layer] and the output is stored in adata.layers[to_layer].
-
-        Args:
-            adata (ad.AnnData): The AnnData object to transform. Must have log1p transformed data in adata.layers[from_layer].
-            batch_key (str): The column in adata.obs that defines the batches.
-            from_layer (str): The layer to take the data from.
-            to_layer (str): The layer to store the results of the transformation.
-
-        Returns:
-            ad.AnnData: The transformed AnnData object with batch corrected data in adata.layers[to_layer].
-        """
-        # Get expression matrix dataframe
-        df = adata.to_df(layer = from_layer).T
-        batch_list = adata.obs[batch_key].values.tolist()
-
-        # Apply pycombat batch correction
-        corrected_df = pycombat(df, batch_list, par_prior=True)
-
-        # Assign batch corrected expression to .layers[to_layer] attribute
-        adata.layers[to_layer] = corrected_df.T
-
-        return adata
-    
-    def get_deltas(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
-        """
-        Compute the deviations from the mean expression of each gene in adata.layers[from_layer] and save them
-        in adata.layers[to_layer]. Also add the mean expression of each gene to adata.var[f'{from_layer}_avg_exp'].
-
-        Args:
-            adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
-            from_layer (str): The layer to take the data from.
-            to_layer (str): The layer to store the results of the transformation.
-
-        Returns:
-            ad.AnnData: The updated AnnData object with the deltas and mean expression.
-        """
-
-        # Get the expression matrix of both train and global data
-        glob_expression = adata.to_df(layer=from_layer)
-        train_expression = adata[adata.obs['split'] == 'train'].to_df(layer=from_layer)
-
-        # Define scaler
-        scaler = StandardScaler(with_mean=True, with_std=False)
-
-        # Fit the scaler to the train data
-        scaler = scaler.fit(train_expression)
-        
-        # Get the centered expression matrix of the global data
-        centered_expression = scaler.transform(glob_expression)
-
-        # Add the deltas to adata.layers[to_layer]	
-        adata.layers[to_layer] = centered_expression
-
-        # Add the mean expression to adata.var[f'{from_layer}_avg_exp']
-        adata.var[f'{from_layer}_avg_exp'] = scaler.mean_
-
-        # Return the updated AnnData object
-        return adata
-
-    def compute_moran(adata: ad.AnnData, hex_geometry: bool, from_layer: str) -> ad.AnnData:
-        """
-        This function cycles over each slide in the adata object and computes the Moran's I for each gene.
-        After that, it averages the Moran's I for each gene across all slides and saves it in adata.var[f'{from_layer}_moran'].
-        The input data for the Moran's I computation is adata.layers[from_layer].
-
-        Args:
-            adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
-            from_layer (str): The key in adata.layers with the values used to compute Moran's I.
-            hex_geometry (bool): Whether the data is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I.
-
-        Returns:
-            ad.AnnData: The updated AnnData object with the average Moran's I for each gene in adata.var[f'{from_layer}_moran'].
-        """
-        print(f'Computing Moran\'s I for each gene over each slide using data of layer {from_layer}...')
-
-        # Get the unique slide_ids
-        slide_ids = adata.obs['slide_id'].unique()
-
-        # Create a dataframe to store the Moran's I for each slide
-        moran_df = pd.DataFrame(index = adata.var.index, columns=slide_ids)
-
-        # Cycle over each slide
-        for slide in slide_ids:
-            # Get the annData for the current slide
-            slide_adata = self.get_slide_from_collection(adata, slide)
-            # Compute spatial_neighbors
-            if hex_geometry:
-                # Hexagonal visium case
-                sq.gr.spatial_neighbors(slide_adata, coord_type='generic', n_neighs=6)
-            else:
-                # Grid STNet dataset case
-                sq.gr.spatial_neighbors(slide_adata, coord_type='grid', n_neighs=8)
-            # Compute Moran's I
-            sq.gr.spatial_autocorr(
-                slide_adata,
-                mode="moran",
-                layer=from_layer,
-                genes=slide_adata.var_names,
-                n_perms=1000,
-                n_jobs=-1,
-                seed=42
-            )
-
-            # Get moran I
-            moranI = slide_adata.uns['moranI']['I']
-            # Reindex moranI to match the order of the genes in the adata object
-            moranI = moranI.reindex(adata.var.index)
-
-            # Add the Moran's I to the dataframe
-            moran_df[slide] = moranI
-
-        # Compute the average Moran's I for each gene
-        adata.var[f'{from_layer}_moran'] = moran_df.mean(axis=1)
-
-        # Return the updated AnnData object
-        return adata
-
-    def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
-        """
-        This function filters the genes in adata.var by the Moran's I. It keeps the n_keep genes with the highest Moran's I.
-        The Moran's I values will be selected from adata.var[f'{from_layer}_moran'].
-
-        Args:
-            adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'].
-            n_keep (int): The number of genes to keep.
-            from_layer (str): Layer for which the Moran's I was computed the key in adata.var is f'{from_layer}_moran'.
-
-        Returns:
-            ad.AnnData: The updated AnnData object with the filtered genes.
-        """
-
-        # Assert that the number of genes is at least n_keep
-        assert adata.n_vars >= n_keep, f'The number of genes in the AnnData object is {adata.n_vars}, which is less than n_keep ({n_keep}).'
-
-        # Select amount of top genes depending on the available amount if n_keep is not specified
-        if n_keep <= 0:
-            n_keep = round(adata.n_vars * 0.25, 0)
-            if np.abs(n_keep - 128) > np.abs(n_keep - 32):
-                n_keep = 32
-            else:
-                n_keep = 128
-
-        print(f"Filtering genes by Moran's I. Keeping top {n_keep} genes.")
-        
-        # Sort the genes by Moran's I
-        sorted_genes = adata.var.sort_values(by=f'{from_layer}_moran', ascending=False).index
-
-        # Get genes to keep list
-        genes_to_keep = list(sorted_genes[:n_keep])
-
-        # Filter the genes andata object
-        adata = adata[:, genes_to_keep]
-
-        # Return the updated AnnData object
-        return adata
-
-
-    ### Now compute all the processing steps
+    ### Compute all the processing steps
     # NOTE: The d prefix stands for denoised
     # NOTE: The c prefix stands for combat
 
@@ -711,24 +747,24 @@ def process_dataset(self, adata: ad.AnnData) -> ad.AnnData:
     adata.layers['counts'] = adata.X.toarray()
     
     # Make TPM normalization
-    adata = tpm_normalization(adata, from_layer='counts', to_layer='tpm')
+    adata = tpm_normalization(dataset, adata, from_layer='counts', to_layer='tpm')
 
     # Transform the data with log1p (base 2.0)
     adata = log1p_transformation(adata, from_layer='tpm', to_layer='log1p')
 
     # Denoise the data with pepper noise
-    adata = clean_noise(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=self.hex_geometry)
+    adata = clean_noise(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=hex_geometry)
 
     # Compute average moran for each gene in the layer d_log1p 
-    adata = compute_moran(adata, hex_geometry=self.hex_geometry, from_layer='d_log1p')
+    adata = compute_moran(adata, hex_geometry=hex_geometry, from_layer='d_log1p')
 
     # Filter genes by Moran's I
-    adata = filter_by_moran(adata, n_keep=self.param_dict['top_moran_genes'], from_layer='d_log1p')
+    adata = filter_by_moran(adata, n_keep=param_dict['top_moran_genes'], from_layer='d_log1p')
 
     # If combat key is specified, apply batch correction
-    if self.param_dict['combat_key'] != 'None':
-        adata = combat_transformation(adata, batch_key=self.param_dict['combat_key'], from_layer='log1p', to_layer='c_log1p')
-        adata = combat_transformation(adata, batch_key=self.param_dict['combat_key'], from_layer='d_log1p', to_layer='c_d_log1p')
+    if param_dict['combat_key'] != 'None':
+        adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='log1p', to_layer='c_log1p')
+        adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='d_log1p', to_layer='c_d_log1p')
 
     # Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
     adata = get_deltas(adata, from_layer='log1p', to_layer='deltas')
@@ -749,11 +785,11 @@ def process_dataset(self, adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 
-def compute_patches_embeddings_and_predictions(self, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True) -> None:
+def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True) -> None:
         
         # Define a cuda device if available
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=self.adata.n_vars)
+        model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars)
 
         if model_path != "None":
             saved_model = torch.load(model_path)
@@ -1129,7 +1165,7 @@ def get_graphs(self, n_hops: int, layer: str) -> dict:
 
     # Iterate through slides
     for slide in tqdm(unique_ids, leave=True, position=0):
-        curr_adata = self.get_slide_from_collection(self.adata, slide)
+        curr_adata = get_slide_from_collection(self.adata, slide)
         curr_graph_dict, max_curr_d_pos = get_graphs_one_slide(self, curr_adata, n_hops, layer, self.hex_geometry)
         
         # Join the current dictionary to the global dictionary
