@@ -25,12 +25,13 @@ from combat.pycombat import pycombat
 import scanpy as sc
 from sklearn.preprocessing import StandardScaler
 import squidpy as sq
+from torch_geometric.utils import from_scipy_sparse_matrix
 
 # Get the path of the spared database
 SPARED_PATH = pathlib.Path(__file__).parent
 
 
-def get_slide_from_collection(self, collection: ad.AnnData,  slide: str) -> ad.AnnData:
+def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData:
     """
     This function receives a slide name and returns an adata object of the specified slide based on the collection of slides
     in collection.
@@ -707,8 +708,43 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Return the updated AnnData object
     return adata
 
+def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
+
+    if 'delta' in prediction_layer or 'noisy_d' in prediction_layer:
+    # FIXME: make it flexible for other prediction layers different to c_d_log1p
+        # Get vector with gene means
+        gene_means = adata.var['c_d_log1p_avg_exp'].values 
+        # Expand gene means to the shape of the layer
+        gene_means = np.repeat(gene_means.reshape(1, -1), adata.n_obs, axis=0)
+        # Get valid mask
+        valid_mask = adata.layers['mask']
+        # Initialize noisy deltas
+        noisy_deltas = -gene_means 
+        # Assign delta values in positions where valid mask is true
+        noisy_deltas[valid_mask] = adata.layers['c_d_deltas'][valid_mask]
+        # Add the layer to the adata
+        adata.layers['noisy_d'] = noisy_deltas
+
+        # Add a var column of used means of the layer
+        mean_key = f'c_d_log1p_avg_exp'
+        adata.var['used_mean'] = adata.var[mean_key]
+
+    else:
+        # Copy the cleaned layer to the layer noisy
+        noised_layer = adata.layers[prediction_layer].copy()
+        # Get zero mask
+        zero_mask = ~adata.layers['mask']
+        # Zero out the missing values
+        noised_layer[zero_mask] = 0
+        # Add the layer to the adata
+        adata.layers['noisy'] = noised_layer
+
+    # Give warning to say that the noisy layer is being used
+    print('Using noisy_delta layer for training. This will probably yield bad results.')
+
+    return adata
+
 def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
-    # FIXME: "dataset" parameter added - check for possible bugs
     # FIXME: hex_geometry default set to True (?)
     """
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
@@ -785,123 +821,126 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     return adata
 
 
-def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True) -> None:
-        
-        # Define a cuda device if available
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars)
+def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
+    # TODO: add documentation on function's purpose, arguments, and what does it return.
+    # FIXME: keep patch_scale as parameter?    
 
-        if model_path != "None":
-            saved_model = torch.load(model_path)
-            # Check if state_dict is inside a nested dictionary
-            if 'state_dict' in saved_model.keys():
-                saved_model = saved_model['state_dict']
+    # Define a cuda device if available
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars)
 
-            model.load_state_dict(saved_model)
-        
-        if backbone == 'resnet':
-            weights = tmodels.ResNet18_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == 'resnet50':
-            weights = tmodels.ResNet50_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == 'ConvNeXt':
-            weights = tmodels.ConvNeXt_Tiny_Weights.DEFAULT
-            if not preds:
-                model.encoder.classifier[2] = nn.Identity()
-        elif backbone == 'EfficientNetV2':
-            weights = tmodels.EfficientNet_V2_S_Weights.DEFAULT 
-            if not preds:
-                model.encoder.classifier[1] = nn.Identity()
-        elif backbone == 'InceptionV3':
-            weights = tmodels.Inception_V3_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == "MaxVit":
-            weights = tmodels.MaxVit_T_Weights.DEFAULT
-            if not preds:
-                model.encoder.classifier[5] = nn.Identity()
-        elif backbone == "MobileNetV3":
-            weights = tmodels.MobileNet_V3_Small_Weights.DEFAULT
-            if not preds:
-                model.encoder.classifier[3] = nn.Identity()
-        elif backbone == "ResNetXt":
-            weights = tmodels.ResNeXt50_32X4D_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == "ShuffleNetV2":
-            weights = tmodels.ShuffleNet_V2_X0_5_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == "ViT":
-            weights = tmodels.ViT_B_16_Weights.DEFAULT
-            if not preds:
-                model.encoder.heads.head = nn.Identity()
-        elif backbone == "WideResnet":
-            weights = tmodels.Wide_ResNet50_2_Weights.DEFAULT
-            if not preds:
-                model.encoder.fc = nn.Identity()
-        elif backbone == 'densenet':
-            weights = tmodels.DenseNet121_Weights.DEFAULT
-            if not preds:
-                model.encoder.classifier = nn.Identity() 
-        elif backbone == 'swin':
-            weights = tmodels.Swin_T_Weights.DEFAULT
-            if not preds:
-                model.encoder.head = nn.Identity()
-        else:
-            raise ValueError(f'Backbone {backbone} not supported')
+    if model_path != "None":
+        saved_model = torch.load(model_path)
+        # Check if state_dict is inside a nested dictionary
+        if 'state_dict' in saved_model.keys():
+            saved_model = saved_model['state_dict']
 
-        model.to(device)
-        model.eval()
-
-        preprocess = weights.transforms(antialias=True)
-
-        # Get the patches
-        flat_patches = self.adata.obsm[f'patches_scale_{self.patch_scale}']
-
-        # Reshape all the patches to the original shape
-        all_patches = flat_patches.reshape((-1, self.patch_size, self.patch_size, 3))
-        torch_patches = torch.from_numpy(all_patches).permute(0, 3, 1, 2).float()    # Turn all patches to torch
-        rescaled_patches = torch_patches / 255                                       # Rescale patches to [0, 1]
-        processed_patches = preprocess(rescaled_patches)                             # Preprocess patches
-        
-        # Create a dataloader
-        dataloader = DataLoader(processed_patches, batch_size=256, shuffle=False, num_workers=4)
-
-        # Declare lists to store the embeddings or predictions
-        outputs = []
-
-        with torch.no_grad():
-            if preds:
-                desc = 'Getting predictions'
-            else:
-                desc = 'Getting embeddings'
-            for batch in tqdm(dataloader, desc=desc):
-                batch = batch.to(device)                    # Send batch to device                
-                batch_output = model(batch)                 # Get embeddings or predictions
-                outputs.append(batch_output)                # Append to list
-
-
-        # Concatenate all embeddings or predictions
-        outputs = torch.cat(outputs, dim=0)
+        model.load_state_dict(saved_model)
     
-        # Pass embeddings or predictions to cpu and add to self.data.obsm
+    if backbone == 'resnet':
+        weights = tmodels.ResNet18_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == 'resnet50':
+        weights = tmodels.ResNet50_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == 'ConvNeXt':
+        weights = tmodels.ConvNeXt_Tiny_Weights.DEFAULT
+        if not preds:
+            model.encoder.classifier[2] = nn.Identity()
+    elif backbone == 'EfficientNetV2':
+        weights = tmodels.EfficientNet_V2_S_Weights.DEFAULT 
+        if not preds:
+            model.encoder.classifier[1] = nn.Identity()
+    elif backbone == 'InceptionV3':
+        weights = tmodels.Inception_V3_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == "MaxVit":
+        weights = tmodels.MaxVit_T_Weights.DEFAULT
+        if not preds:
+            model.encoder.classifier[5] = nn.Identity()
+    elif backbone == "MobileNetV3":
+        weights = tmodels.MobileNet_V3_Small_Weights.DEFAULT
+        if not preds:
+            model.encoder.classifier[3] = nn.Identity()
+    elif backbone == "ResNetXt":
+        weights = tmodels.ResNeXt50_32X4D_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == "ShuffleNetV2":
+        weights = tmodels.ShuffleNet_V2_X0_5_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == "ViT":
+        weights = tmodels.ViT_B_16_Weights.DEFAULT
+        if not preds:
+            model.encoder.heads.head = nn.Identity()
+    elif backbone == "WideResnet":
+        weights = tmodels.Wide_ResNet50_2_Weights.DEFAULT
+        if not preds:
+            model.encoder.fc = nn.Identity()
+    elif backbone == 'densenet':
+        weights = tmodels.DenseNet121_Weights.DEFAULT
+        if not preds:
+            model.encoder.classifier = nn.Identity() 
+    elif backbone == 'swin':
+        weights = tmodels.Swin_T_Weights.DEFAULT
+        if not preds:
+            model.encoder.head = nn.Identity()
+    else:
+        raise ValueError(f'Backbone {backbone} not supported')
+
+    model.to(device)
+    model.eval()
+
+    preprocess = weights.transforms(antialias=True)
+
+    # Get the patches
+    flat_patches = adata.obsm[f'patches_scale_{patch_scale}']
+
+    # Reshape all the patches to the original shape
+    all_patches = flat_patches.reshape((-1, patch_size, patch_size, 3))
+    torch_patches = torch.from_numpy(all_patches).permute(0, 3, 1, 2).float()    # Turn all patches to torch
+    rescaled_patches = torch_patches / 255                                       # Rescale patches to [0, 1]
+    processed_patches = preprocess(rescaled_patches)                             # Preprocess patches
+    
+    # Create a dataloader
+    dataloader = DataLoader(processed_patches, batch_size=256, shuffle=False, num_workers=4)
+
+    # Declare lists to store the embeddings or predictions
+    outputs = []
+
+    with torch.no_grad():
         if preds:
-            self.adata.obsm[f'predictions_{backbone}'] = outputs.cpu().numpy()
+            desc = 'Getting predictions'
         else:
-            self.adata.obsm[f'embeddings_{backbone}'] = outputs.cpu().numpy()
+            desc = 'Getting embeddings'
+        for batch in tqdm(dataloader, desc=desc):
+            batch = batch.to(device)                    # Send batch to device                
+            batch_output = model(batch)                 # Get embeddings or predictions
+            outputs.append(batch_output)                # Append to list
 
 
-def get_pretrain_dataloaders(self, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
+    # Concatenate all embeddings or predictions
+    outputs = torch.cat(outputs, dim=0)
+
+    # Pass embeddings or predictions to cpu and add to data.obsm
+    if preds:
+        adata.obsm[f'predictions_{backbone}'] = outputs.cpu().numpy()
+    else:
+        adata.obsm[f'embeddings_{backbone}'] = outputs.cpu().numpy()
+
+
+def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
     This function returns the dataloaders for the pre-training phase. This means training a purely vision-based model on only
     the patches to predict the gene expression of the patches.
 
     Args:
-        layer (str, optional): The layer to use for the pre-training. The self.adata.X will be set to that of 'layer'. Defaults to 'deltas'.
+        adata (ad.AnnData): The AnnData object that will be processed.
+        layer (str, optional): The layer to use for the pre-training. The adata.X will be set to that of 'layer'. Defaults to 'deltas'.
         batch_size (int, optional): The batch size of the loaders. Defaults to 128.
         shuffle (bool, optional): Whether to shuffle the data in the loaders. Defaults to True.
         use_cuda (bool, optional): True for using cuda in the loader. Defaults to False.
@@ -910,69 +949,31 @@ def get_pretrain_dataloaders(self, layer: str = 'c_d_log1p', batch_size: int = 1
         Tuple[AnnLoader, AnnLoader, AnnLoader]: The train, validation and test dataloaders. If there is no test set, the test dataloader is None.
     """
     # Get the sample indexes for the train, validation and test sets
-    idx_train, idx_val, idx_test = self.adata.obs[self.adata.obs.split == 'train'].index, self.adata.obs[self.adata.obs.split == 'val'].index, self.adata.obs[self.adata.obs.split == 'test'].index
+    idx_train, idx_val, idx_test = adata.obs[adata.obs.split == 'train'].index, adata.obs[adata.obs.split == 'val'].index, adata.obs[adata.obs.split == 'test'].index
 
-    # FIXME: Put this in process_dataset
-    ##### Adition to handle noisy training (this is temporal and should be in process_dataset) #####
+    ##### Adition to handle noisy training #####
 
+    # FIXME: should we keep the option of loading noisy data?
     # Handle noisy training
-    if layer == 'noisy':
-        # Copy the layer c_d_log1p to the layer noisy
-        c_d_log1p = self.adata.layers['c_d_log1p'].copy()
-        # Get zero mask
-        zero_mask = ~self.adata.layers['mask']
-        # Zero out the missing values
-        c_d_log1p[zero_mask] = 0
-        # Add the layer to the adata
-        self.adata.layers['noisy'] = c_d_log1p
-
-        # Give warning to say that the noisy layer is being used
-        print('Using noisy layer for training. This will probably yield bad results.')
-
-    # Handle noisy_delta case
-    if layer == 'noisy_d':
-        # Get vector with gene means
-        gene_means = self.adata.var['c_d_log1p_avg_exp'].values
-        # Expand gene means to the shape of the layer
-        gene_means = np.repeat(gene_means.reshape(1, -1), self.adata.n_obs, axis=0)
-        # Get valid mask
-        valid_mask = self.adata.layers['mask']
-        # Initialize noisy deltas
-        noisy_deltas = -gene_means 
-        # Assign delta values in positions where valid mask is true
-        noisy_deltas[valid_mask] = self.adata.layers['c_d_deltas'][valid_mask]
-        # Add the layer to the adata
-        self.adata.layers['noisy_d'] = noisy_deltas
-
-        # Give warning to say that the noisy layer is being used
-        print('Using noisy_delta layer for training. This will probably yield bad results.')
-
-    ##### End of adition #####
+    adata = add_noisy_layer(adata=adata, prediction_layer=layer)
 
     # Set the X of the adata to the layer casted to float32
-    self.adata.X = self.adata.layers[layer].astype(np.float32)
+    adata.X = adata.layers[layer].astype(np.float32)
 
     imp_model_str = 'transformer model' if layer in ['c_t_log1p', 'c_t_deltas'] else 'median filter'
 
     # Print with the percentage of the dataset that was replaced
-    print('Percentage of imputed observations with {}: {:5.3f}%'.format(imp_model_str, 100 * (~self.adata.layers["mask"]).sum() / (self.adata.n_vars*self.adata.n_obs)))
+    print('Percentage of imputed observations with {}: {:5.3f}%'.format(imp_model_str, 100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))
 
     # If the prediction layer is some form of deltas, add the used mean of the layer as a column in the var
     if 'deltas' in layer:
         # Add a var column of used means of the layer
         mean_key = f'{layer}_avg_exp'.replace('deltas', 'log1p')
-        self.adata.var['used_mean'] = self.adata.var[mean_key]
-    
-    ### Adition to handle noisy training (this is temporal and should be in process_dataset) ###
-    if layer == 'noisy_d':
-        # Add a var column of used means of the layer
-        mean_key = f'c_d_log1p_avg_exp'
-        self.adata.var['used_mean'] = self.adata.var[mean_key]
-    ### End of adition ###
+        adata.var['used_mean'] = adata.var[mean_key]
 
     # Subset the global data handle also the possibility that there is no test set
-    adata_train, adata_val = self.adata[idx_train, :], self.adata[idx_val, :]
-    adata_test = self.adata[idx_test, :] if len(idx_test) > 0 else None
+    adata_train, adata_val = adata[idx_train, :], adata[idx_val, :]
+    adata_test = adata[idx_test, :] if len(idx_test) > 0 else None
 
     # Declare dataloaders
     train_dataloader = AnnLoader(adata_train, batch_size=batch_size, shuffle=shuffle, use_cuda=use_cuda)
@@ -982,182 +983,188 @@ def get_pretrain_dataloaders(self, layer: str = 'c_d_log1p', batch_size: int = 1
     return train_dataloader, val_dataloader, test_dataloader
 
 
-def get_graphs(self, n_hops: int, layer: str) -> dict:
+### Define auxiliary functions for graph building
+def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> Tuple[dict,int]:
+    """
+    This function receives an AnnData object with a single slide and for each node computes the graph in an
+    n_hops radius in a pytorch geometric format. It returns a dictionary where the patch names are the keys
+    and a pytorch geometric graph for each one as values. NOTE: The first node of every graph is the center.
+
+    Args:
+        adata (ad.AnnData): The AnnData object with the slide data.
+        n_hops (int): The number of hops to compute the graph.
+        layer (str): The layer of the graph to predict. Will be added as y to the graph.
+        hex_geometry (bool): Whether the slide has hexagonal geometry or not.
+        patch_scale (float, optional): The scale of the patches to take into account. If bigger than 1, then the patches will be bigger than the original image. Defaults to 1.0.
+
+    Returns:
+        Tuple(dict,int)
+        dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values.
+            NOTE: The first node of every graph is the center.
+        int: Max absolute value of d pos in the slide                      
+    """
+    # Compute spatial_neighbors
+    if hex_geometry:
+        sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
+    else:
+        sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid STNet dataset case
+
+    # Get the adjacency matrix
+    adj_matrix = adata.obsp['spatial_connectivities']
+
+    # Define power matrix
+    power_matrix = adj_matrix.copy()
+    # Define the output matrix
+    output_matrix = adj_matrix.copy()
+
+    # Iterate through the hops
+    for i in range(n_hops-1):
+        # Compute the next hop
+        power_matrix = power_matrix * adj_matrix
+        # Add the next hop to the output matrix
+        output_matrix = output_matrix + power_matrix
+
+    # Zero out the diagonal
+    output_matrix.setdiag(0)
+    # Threshold the matrix to 0 and 1
+    output_matrix = output_matrix.astype(bool).astype(int)
+
+    # Define dict from index to obs name
+    index_to_obs = {i: obs for i, obs in enumerate(adata.obs.index.values)}
+
+    # Define neighbors dicts (one with names and one with indexes)
+    neighbors_dict_index = {}
+    neighbors_dict_names = {}
+    matrices_dict = {}
+
+    # Iterate through the rows of the output matrix
+    for i in range(output_matrix.shape[0]):
+        # Get the non-zero elements of the row
+        non_zero_elements = output_matrix[i].nonzero()[1]
+        # Get the names of the neighbors
+        non_zero_names = [index_to_obs[index] for index in non_zero_elements]
+        # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
+        neighbors_dict_index[i] = [i] + list(non_zero_elements)
+        neighbors_dict_names[index_to_obs[i]] = np.array([index_to_obs[i]] + non_zero_names)
+        
+        # Subset the matrix to the non-zero elements and store it in the matrices dict
+        matrices_dict[index_to_obs[i]] = output_matrix[neighbors_dict_index[i], :][:, neighbors_dict_index[i]]
+
+    
+    ### Get pytorch geometric graphs ###
+    patch_names = adata.obs.index.values                                                                        # Get global patch names
+    layers_dict = {key: torch.from_numpy(adata.layers[key]).type(torch.float32) for key in adata.layers.keys()} # Get global layers
+    patches = torch.from_numpy(adata.obsm[f'patches_scale_{patch_scale}'])                                      # Get global patches
+    pos = torch.from_numpy(adata.obs[['array_row', 'array_col']].values)                                        # Get global positions
+
+    # Get embeddings and predictions keys
+    emb_key_list = [k for k in adata.obsm.keys() if 'embeddings' in k]
+    pred_key_list = [k for k in adata.obsm.keys() if 'predictions' in k]
+    assert len(emb_key_list) == 1, 'There are more than 1 or no embedding keys in adata.obsm'
+    assert len(pred_key_list) == 1, 'There are more than 1 or no prediction keys in adata.obsm'
+    emb_key, pred_key = emb_key_list[0], pred_key_list[0]
+
+    # If embeddings and predictions are present in obsm, get them
+    embeddings = torch.from_numpy(adata.obsm[emb_key]).type(torch.float32)
+    predictions = torch.from_numpy(adata.obsm[pred_key]).type(torch.float32)
+
+    # If layer contains delta then add a used_mean attribute to the graph
+    used_mean = torch.from_numpy(adata.var[f'{layer}_avg_exp'.replace('deltas', 'log1p')].values).type(torch.float32) if 'deltas' in layer else None
+
+    # Define the empty graph dict
+    graph_dict = {}
+    max_abs_d_pos=-1
+
+    # Cycle over each obs
+    for i in tqdm(range(len(neighbors_dict_index)), leave=False, position=1):
+        central_node_name = index_to_obs[i]                                                 # Get the name of the central node
+        curr_nodes_idx = torch.tensor(neighbors_dict_index[i])                              # Get the indexes of the nodes in the graph
+        curr_adj_matrix = matrices_dict[central_node_name]                                  # Get the adjacency matrix of the graph (precomputed)
+        curr_edge_index, curr_edge_attribute = from_scipy_sparse_matrix(curr_adj_matrix)    # Get the edge index and edge attribute of the graph
+        curr_layers = {key: layers_dict[key][curr_nodes_idx] for key in layers_dict.keys()} # Get the layers of the graph filtered by the nodes
+        curr_pos = pos[curr_nodes_idx]                                                      # Get the positions of the nodes in the graph
+        curr_d_pos = curr_pos - curr_pos[0]                                                 # Get the relative positions of the nodes in the graph
+
+        # Define the graph
+        graph_dict[central_node_name] = geo_Data(
+            # x=patches[curr_nodes_idx],
+            y=curr_layers[layer],
+            edge_index=curr_edge_index,
+            # edge_attr=curr_edge_attribute,
+            pos=curr_pos,
+            d_pos=curr_d_pos,
+            # patch_names=patch_names[neighbors_dict_index[i]],
+            embeddings=embeddings[curr_nodes_idx],
+            predictions=predictions[curr_nodes_idx] if predictions is not None else None,
+            used_mean=used_mean if used_mean is not None else None,
+            num_nodes=len(curr_nodes_idx),
+            mask=layers_dict['mask'][curr_nodes_idx]
+            # **curr_layers
+        )
+
+        max_curr_d_pos=curr_d_pos.abs().max()
+        if max_curr_d_pos>max_abs_d_pos:
+            max_abs_d_pos=max_curr_d_pos
+
+    #cast as int
+    max_abs_d_pos=int(max_abs_d_pos)
+    
+    # Return the graph dict
+    return graph_dict, max_abs_d_pos
+
+def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
+    
+    """This function adds the positional embeddings of each node to the graph dict.
+
+    Args:
+        graph_dict (dict): A dictionary where the patch names are the keys and pytorch geometric graph for each one as values
+        max_d_pos (int): Max absolute value in the relative position matrix.
+
+    Returns:
+        dict: The input graph dict with the information of positional encodings for each graph.
+    """
+    graph_dict_keys = list(graph_dict.keys())
+    embedding_dim = graph_dict[graph_dict_keys[0]].embeddings.shape[1]
+
+    # Define the positional encoding model
+    p_encoding_model= PositionalEncoding2D(embedding_dim)
+
+    # Define the empty grid with size (batch_size, x, y, channels)
+    grid_size = torch.zeros([1, 2*max_d_pos+1, 2*max_d_pos+1, embedding_dim])
+
+    # Obtain the embeddings for each position
+    positional_look_up_table = p_encoding_model(grid_size)        
+
+    for key, value in graph_dict.items():
+        d_pos = value.d_pos
+        grid_pos = d_pos + max_d_pos
+        graph_dict[key].positional_embeddings = positional_look_up_table[0,grid_pos[:,0],grid_pos[:,1],:]
+    
+    return graph_dict
+
+
+def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True, patch_scale: float=1.0) -> dict:
     """
     This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset. For details
     on the get_graphs_one_slide function see its docstring.
 
     Args:
+        adata (ad.AnnData): The AnnData object used to build the graphs.
         n_hops (int): The number of hops to compute each graph.
         layer (str): The layer of the graph to predict. Will be added as y to the graph.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                            used to compute the spatial neighbors and only true for visium datasets.
+        # FIXME: hex_geometry default set to True (?)
+        patch_scale (float, optional): The scale of the patches to take into account. If bigger than 1, then the patches will be bigger than the original image. Defaults to 1.0.
 
     Returns:
         dict: A dictionary where the slide names are the keys and pytorch geometric graphs are values.
     """
 
-    ### Define auxiliar functions ###
-
-    def get_graphs_one_slide(self, adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool) -> Tuple[dict,int]:
-        """
-        This function receives an AnnData object with a single slide and for each node computes the graph in an
-        n_hops radius in a pytorch geometric format. It returns a dictionary where the patch names are the keys
-        and a pytorch geometric graph for each one as values. NOTE: The first node of every graph is the center.
-
-        Args:
-            adata (ad.AnnData): The AnnData object with the slide data.
-            n_hops (int): The number of hops to compute the graph.
-            layer (str): The layer of the graph to predict. Will be added as y to the graph.
-            hex_geometry (bool): Whether the slide has hexagonal geometry or not.
-
-        Returns:
-            Tuple(dict,int)
-            dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values.
-                NOTE: The first node of every graph is the center.
-            int: Max absolute value of d pos in the slide                      
-        """
-        # Compute spatial_neighbors
-        if hex_geometry:
-            sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
-        else:
-            sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid STNet dataset case
-
-        # Get the adjacency matrix
-        adj_matrix = adata.obsp['spatial_connectivities']
-
-        # Define power matrix
-        power_matrix = adj_matrix.copy()
-        # Define the output matrix
-        output_matrix = adj_matrix.copy()
-
-        # Iterate through the hops
-        for i in range(n_hops-1):
-            # Compute the next hop
-            power_matrix = power_matrix * adj_matrix
-            # Add the next hop to the output matrix
-            output_matrix = output_matrix + power_matrix
-
-        # Zero out the diagonal
-        output_matrix.setdiag(0)
-        # Threshold the matrix to 0 and 1
-        output_matrix = output_matrix.astype(bool).astype(int)
-
-        # Define dict from index to obs name
-        index_to_obs = {i: obs for i, obs in enumerate(adata.obs.index.values)}
-
-        # Define neighbors dicts (one with names and one with indexes)
-        neighbors_dict_index = {}
-        neighbors_dict_names = {}
-        matrices_dict = {}
-
-        # Iterate through the rows of the output matrix
-        for i in range(output_matrix.shape[0]):
-            # Get the non-zero elements of the row
-            non_zero_elements = output_matrix[i].nonzero()[1]
-            # Get the names of the neighbors
-            non_zero_names = [index_to_obs[index] for index in non_zero_elements]
-            # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
-            neighbors_dict_index[i] = [i] + list(non_zero_elements)
-            neighbors_dict_names[index_to_obs[i]] = np.array([index_to_obs[i]] + non_zero_names)
-            
-            # Subset the matrix to the non-zero elements and store it in the matrices dict
-            matrices_dict[index_to_obs[i]] = output_matrix[neighbors_dict_index[i], :][:, neighbors_dict_index[i]]
-
-        
-        ### Get pytorch geometric graphs ###
-        patch_names = adata.obs.index.values                                                                        # Get global patch names
-        layers_dict = {key: torch.from_numpy(adata.layers[key]).type(torch.float32) for key in adata.layers.keys()} # Get global layers
-        patches = torch.from_numpy(adata.obsm[f'patches_scale_{self.patch_scale}'])                                 # Get global patches
-        pos = torch.from_numpy(adata.obs[['array_row', 'array_col']].values)                                        # Get global positions
-
-        # Get embeddings and predictions keys
-        emb_key_list = [k for k in adata.obsm.keys() if 'embeddings' in k]
-        pred_key_list = [k for k in adata.obsm.keys() if 'predictions' in k]
-        assert len(emb_key_list) == 1, 'There are more than 1 or no embedding keys in adata.obsm'
-        assert len(pred_key_list) == 1, 'There are more than 1 or no prediction keys in adata.obsm'
-        emb_key, pred_key = emb_key_list[0], pred_key_list[0]
-
-        # If embeddings and predictions are present in obsm, get them
-        embeddings = torch.from_numpy(adata.obsm[emb_key]).type(torch.float32)
-        predictions = torch.from_numpy(adata.obsm[pred_key]).type(torch.float32)
-
-        # If layer contains delta then add a used_mean attribute to the graph
-        used_mean = torch.from_numpy(self.adata.var[f'{layer}_avg_exp'.replace('deltas', 'log1p')].values).type(torch.float32) if 'deltas' in layer else None
-
-        # Define the empty graph dict
-        graph_dict = {}
-        max_abs_d_pos=-1
-
-        # Cycle over each obs
-        for i in tqdm(range(len(neighbors_dict_index)), leave=False, position=1):
-            central_node_name = index_to_obs[i]                                                 # Get the name of the central node
-            curr_nodes_idx = torch.tensor(neighbors_dict_index[i])                              # Get the indexes of the nodes in the graph
-            curr_adj_matrix = matrices_dict[central_node_name]                                  # Get the adjacency matrix of the graph (precomputed)
-            curr_edge_index, curr_edge_attribute = from_scipy_sparse_matrix(curr_adj_matrix)    # Get the edge index and edge attribute of the graph
-            curr_layers = {key: layers_dict[key][curr_nodes_idx] for key in layers_dict.keys()} # Get the layers of the graph filtered by the nodes
-            curr_pos = pos[curr_nodes_idx]                                                      # Get the positions of the nodes in the graph
-            curr_d_pos = curr_pos - curr_pos[0]                                                 # Get the relative positions of the nodes in the graph
-
-            # Define the graph
-            graph_dict[central_node_name] = geo_Data(
-                # x=patches[curr_nodes_idx],
-                y=curr_layers[layer],
-                edge_index=curr_edge_index,
-                # edge_attr=curr_edge_attribute,
-                pos=curr_pos,
-                d_pos=curr_d_pos,
-                # patch_names=patch_names[neighbors_dict_index[i]],
-                embeddings=embeddings[curr_nodes_idx],
-                predictions=predictions[curr_nodes_idx] if predictions is not None else None,
-                used_mean=used_mean if used_mean is not None else None,
-                num_nodes=len(curr_nodes_idx),
-                mask=layers_dict['mask'][curr_nodes_idx]
-                # **curr_layers
-            )
-
-            max_curr_d_pos=curr_d_pos.abs().max()
-            if max_curr_d_pos>max_abs_d_pos:
-                max_abs_d_pos=max_curr_d_pos
-
-        #cast as int
-        max_abs_d_pos=int(max_abs_d_pos)
-        
-        # Return the graph dict
-        return graph_dict, max_abs_d_pos
-
-    def get_sin_cos_positional_embeddings(self, graph_dict: dict, max_d_pos: int) -> dict:
-        
-        """This function adds the positional embeddings of each node to the graph dict.
-
-        Args:
-            graph_dict (dict): A dictionary where the patch names are the keys and pytorch geometric graph for each one as values
-            max_d_pos (int): Max absolute value in the relative position matrix.
-
-        Returns:
-            dict: The input graph dict with the information of positional encodings for each graph.
-        """
-        graph_dict_keys = list(graph_dict.keys())
-        embedding_dim = graph_dict[graph_dict_keys[0]].embeddings.shape[1]
-
-        # Define the positional encoding model
-        p_encoding_model= PositionalEncoding2D(embedding_dim)
-
-        # Define the empty grid with size (batch_size, x, y, channels)
-        grid_size = torch.zeros([1, 2*max_d_pos+1, 2*max_d_pos+1, embedding_dim])
-
-        # Obtain the embeddings for each position
-        positional_look_up_table = p_encoding_model(grid_size)        
-
-        for key, value in graph_dict.items():
-            d_pos = value.d_pos
-            grid_pos = d_pos + max_d_pos
-            graph_dict[key].positional_embeddings = positional_look_up_table[0,grid_pos[:,0],grid_pos[:,1],:]
-        
-        return graph_dict
-
     print('Computing graphs...')
 
     # Get unique slide ids
-    unique_ids = self.adata.obs['slide_id'].unique()
+    unique_ids = adata.obs['slide_id'].unique()
 
     # Global dictionary to store the graphs (pytorch geometric graphs)
     graph_dict = {}
@@ -1165,8 +1172,8 @@ def get_graphs(self, n_hops: int, layer: str) -> dict:
 
     # Iterate through slides
     for slide in tqdm(unique_ids, leave=True, position=0):
-        curr_adata = get_slide_from_collection(self.adata, slide)
-        curr_graph_dict, max_curr_d_pos = get_graphs_one_slide(self, curr_adata, n_hops, layer, self.hex_geometry)
+        curr_adata = get_slide_from_collection(adata, slide)
+        curr_graph_dict, max_curr_d_pos = get_graphs_one_slide(curr_adata, n_hops, layer, hex_geometry, patch_scale)
         
         # Join the current dictionary to the global dictionary
         graph_dict = {**graph_dict, **curr_graph_dict}
@@ -1174,13 +1181,14 @@ def get_graphs(self, n_hops: int, layer: str) -> dict:
         if max_curr_d_pos>max_global_d_pos:
             max_global_d_pos=max_curr_d_pos
     
-    graph_dict = get_sin_cos_positional_embeddings(self, graph_dict, max_global_d_pos)
+    graph_dict = get_sin_cos_positional_embeddings(graph_dict, max_global_d_pos)
 
     # Return the graph dict
     return graph_dict
 
 
-def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, shuffle: bool = True) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
+def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
+                          shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
     # Get dictionary of parameters to get the graphs
     curr_graph_params = {
         'n_hops': n_hops,
@@ -1190,9 +1198,9 @@ def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backb
     }        
 
     # Create graph directory if it does not exist
-    os.makedirs(os.path.join(self.dataset_path, 'graphs'), exist_ok=True)
+    os.makedirs(os.path.join(dataset_path, 'graphs'), exist_ok=True)
     # Get the filenames of the parameters of all directories in the graph folder
-    filenames = glob.glob(os.path.join(self.dataset_path, 'graphs', '**', 'graph_params.json' ), recursive=True)
+    filenames = glob.glob(os.path.join(dataset_path, 'graphs', '**', 'graph_params.json' ), recursive=True)
 
     # Define boolean to check if the graphs are already saved
     found_graphs = False
@@ -1220,52 +1228,17 @@ def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backb
         # Print that we are computing the graphs
         print('Graphs not found in file, computing graphs...')
 
-        # FIXME: Put this in process_dataset
-        ##### Adition to handle noisy training (this is temporal and should be in process_dataset) #####
-
-        # Handle noisy training
-        if layer == 'noisy':
-            # Copy the layer c_d_log1p to the layer noisy
-            c_d_log1p = self.adata.layers['c_d_log1p'].copy()
-            # Get zero mask
-            zero_mask = ~self.adata.layers['mask']
-            # Zero out the missing values
-            c_d_log1p[zero_mask] = 0
-            # Add the layer to the adata
-            self.adata.layers['noisy'] = c_d_log1p
-
-            # Give warning to say that the noisy layer is being used
-            print('Using noisy layer for training. This will probably yield bad results.')
-
-        # Handle noisy_delta case
-        if layer == 'noisy_d':
-            # Get vector with gene means
-            gene_means = self.adata.var['c_d_log1p_avg_exp'].values
-            # Expand gene means to the shape of the layer
-            gene_means = np.repeat(gene_means.reshape(1, -1), self.adata.n_obs, axis=0)
-            # Get valid mask
-            valid_mask = self.adata.layers['mask']
-            # Initialize noisy deltas
-            noisy_deltas = -gene_means 
-            # Assign delta values in positions where valid mask is true
-            noisy_deltas[valid_mask] = self.adata.layers['c_d_deltas'][valid_mask]
-            # Add the layer to the adata
-            self.adata.layers['noisy_d'] = noisy_deltas
-
-            # Give warning to say that the noisy layer is being used
-            print('Using noisy_delta layer for training. This will probably yield bad results.')
-
-        ##### End of adition #####
+        adata = add_noisy_layer(adata=adata, prediction_layer=layer)
 
         # We compute the embeddings and predictions for the patches
-        self.compute_patches_embeddings_and_predictions(preds=True, backbone=backbone, model_path=model_path)
-        self.compute_patches_embeddings_and_predictions(preds=False, backbone=backbone, model_path=model_path)
+        compute_patches_embeddings_and_predictions(preds=True, backbone=backbone, model_path=model_path, patch_size=patch_size, patch_scale=patch_scale)
+        compute_patches_embeddings_and_predictions(preds=False, backbone=backbone, model_path=model_path, patch_size=patch_size, patch_scale=patch_scale)
         
         # Get graph dicts
-        general_graph_dict = self.get_graphs(n_hops=n_hops, layer=layer)
+        general_graph_dict = get_graphs(adata=adata, n_hops=n_hops, layer=layer, hex_geometry=hex_geometry, patch_scale=patch_scale)
 
         # Get the train, validation and test indexes
-        idx_train, idx_val, idx_test = self.adata.obs[self.adata.obs.split == 'train'].index, self.adata.obs[self.adata.obs.split == 'val'].index, self.adata.obs[self.adata.obs.split == 'test'].index
+        idx_train, idx_val, idx_test = adata.obs[adata.obs.split == 'train'].index, adata.obs[adata.obs.split == 'val'].index, adata.obs[adata.obs.split == 'test'].index
 
         # Get list of graphs
         train_graphs = [general_graph_dict[idx] for idx in idx_train]
@@ -1274,7 +1247,7 @@ def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backb
 
         print('Saving graphs...')
         # Create graph directory if it does not exist with the current time
-        graph_dir = os.path.join(self.dataset_path, 'graphs', datetime.now().strftime("%d-%m-%Y-%H-%M-%S"))
+        graph_dir = os.path.join(dataset_path, 'graphs', datetime.now().strftime("%d-%m-%Y-%H-%M-%S"))
         os.makedirs(graph_dir, exist_ok=True)
 
         # Save the graph parameters

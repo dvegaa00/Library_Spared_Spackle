@@ -3,7 +3,7 @@ import squidpy as sq
 from utils import *
 
 class ImputationDataset(torch.utils.data.Dataset):
-    def __init__(self, adata, split_name, prediction_layer, pre_masked = False):
+    def __init__(self, adata, split_name, prediction_layer, num_neighs, pre_masked = False):
         """
         This is a spatial data class that contains all the information about the dataset. It will call a reader class depending on the type
         of dataset (by now only visium and STNet are supported). The reader class will download the data and read it into an AnnData collection
@@ -13,6 +13,7 @@ class ImputationDataset(torch.utils.data.Dataset):
         Args:
             adata (ad.AnnData): An anndata object with the data of the entire dataset.
             split_name (str): name of the data split being processed. Useful for identifying which data split the model is being tested on.
+            prediction_layer (str): name of the layer found in adata.layers that has the gene expression values that 
             pre_masked (str, optional): specifies if the data incoming has already been masked for testing purposes. 
                     * If True, __getitem__() will return the random mask that was used to mask the original expression 
                     values instead of the median imputation mask, as well as the gt expressions and the masked data.
@@ -34,7 +35,7 @@ class ImputationDataset(torch.utils.data.Dataset):
 
         # Get adjacency matrix.
         self.adj_mat = None
-        self.get_adjacency(args.num_neighs)
+        self.get_adjacency(num_neighs)
 
 
     def get_adjacency(self, num_neighs = 6):
