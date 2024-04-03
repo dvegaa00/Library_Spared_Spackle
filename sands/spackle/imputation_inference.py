@@ -27,7 +27,7 @@ use_cuda = torch.cuda.is_available()
 # Declare device
 device = torch.device("cuda" if use_cuda else "cpu")
 
-def main():
+def complete_real_missing():
     # Get dataset from the values defined in args
     dataset = get_dataset(args.dataset)
     adata = dataset.adata
@@ -128,4 +128,5 @@ def main():
 
 # Perform gene imputation inference
 if __name__=='__main__':
-    main()
+    complete_real_missing()
+    
