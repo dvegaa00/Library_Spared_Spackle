@@ -30,6 +30,7 @@ from torch_geometric.utils import from_scipy_sparse_matrix
 # Get the path of the spared database
 SPARED_PATH = pathlib.Path(__file__).parent
 
+### Data analysis and filtering functions: 
 
 def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData:
     """
@@ -51,7 +52,6 @@ def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData
 
     # Return the slide
     return slide_adata
-
 
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
@@ -82,7 +82,6 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     # Return the adata
     return adata
 
-
 def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
     This function computes the global expression fraction for each gene in the dataset.
@@ -101,7 +100,6 @@ def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
 
     # Return the adata
     return adata
-
 
 def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     """
@@ -216,7 +214,7 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     return adata
 
 
-### Define data processing functions:
+### Expression data processing functions:
 
 def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
@@ -821,6 +819,8 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     return adata
 
 
+### Patch processing function:
+
 def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
     # TODO: add documentation on function's purpose, arguments, and what does it return.
     # FIXME: keep patch_scale as parameter?    
@@ -933,6 +933,8 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
         adata.obsm[f'embeddings_{backbone}'] = outputs.cpu().numpy()
 
 
+### Adata dataloader building function:
+
 def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
     This function returns the dataloaders for the pre-training phase. This means training a purely vision-based model on only
@@ -983,7 +985,8 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
     return train_dataloader, val_dataloader, test_dataloader
 
 
-### Define auxiliary functions for graph building
+### Graph building functions:
+
 def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> Tuple[dict,int]:
     """
     This function receives an AnnData object with a single slide and for each node computes the graph in an
@@ -1142,7 +1145,6 @@ def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
     return graph_dict
 
-
 def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True, patch_scale: float=1.0) -> dict:
     """
     This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset. For details
@@ -1185,7 +1187,6 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
 
     # Return the graph dict
     return graph_dict
-
 
 def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
                           shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
@@ -1266,4 +1267,3 @@ def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 
     test_dataloader = geo_DataLoader(test_graphs, batch_size=batch_size, shuffle=shuffle) if test_graphs is not None else None
 
     return train_dataloader, val_dataloader, test_dataloader
-
