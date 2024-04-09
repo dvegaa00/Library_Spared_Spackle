@@ -16,7 +16,6 @@ import zipfile
 os.environ["OPENCV_IO_MAX_IMAGE_PIXELS"] = str(pow(2,40)) # To avoid a warning from opencv
 import cv2
 import pathlib
-
 # Remove the max limit of pixels in a figure
 Image.MAX_IMAGE_PIXELS = None
 

@@ -1,7 +1,7 @@
 import anndata as ad
 from anndata.experimental.pytorch import AnnLoader
 import torch
-from . import im_encoder
+#from . import im_encoder
 import torchvision.models as tmodels
 import torch.nn as nn
 from positional_encodings.torch_encodings import PositionalEncoding2D
@@ -26,9 +26,20 @@ import scanpy as sc
 from sklearn.preprocessing import StandardScaler
 import squidpy as sq
 from torch_geometric.utils import from_scipy_sparse_matrix
+from typing import Tuple
+import sys
+#Get the path of the spared database
+#SPARED_PATH = pathlib.Path(__file__).parent
 
-# Get the path of the spared database
-SPARED_PATH = pathlib.Path(__file__).parent
+#El path a spared es ahora diferente
+SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
+
+#Agregar el directorio padre al sys.path para los imports
+sys.path.append(str(SPARED_PATH))
+#Import im_encoder.py file
+from embeddings import im_encoder
+#Remover el directorio padre al sys.path 
+sys.path.remove(str(SPARED_PATH))
 
 ### Data analysis and filtering functions: 
 

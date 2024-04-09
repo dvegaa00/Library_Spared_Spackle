@@ -19,8 +19,8 @@ import wget
 import subprocess
 from combat.pycombat import pycombat
 import torchvision.models as tmodels
-from . import im_encoder
-from . import metrics
+#from . import im_encoder
+#from . import metrics
 import torch.nn as nn
 import torch
 from torch.utils.data import DataLoader, Dataset
@@ -46,30 +46,40 @@ import plotly.express as px
 import pathlib
 from scipy.cluster import hierarchy
 import random
+import sys
 
-# Import data processing functions
-from . import processing
+#El path a spared es ahora diferente
+SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 
-# Import visualization functions
-from . import visualize
+#Agregar el directorio padre al sys.path para los imports
+sys.path.append(str(SPARED_PATH))
+#import im_encoder and metrics files
+from embeddings import im_encoder
+from metrics import metrics
+
+# Import visualization and processing function
+from visualize import visualize
+from processing import processing
 
 # Import all reader classes
-from .readers.AbaloReader import AbaloReader
-from .readers.BatiukReader import BatiukReader
-from .readers.EricksonReader import EricksonReader
-from .readers.FanReader import FanReader
-from .readers.MirzazadehReader import MirzazadehReader
-from .readers.ParigiReader import ParigiReader
-from .readers.VicariReader import VicariReader
-from .readers.VillacampaReader import VillacampaReader
-from .readers.VisiumReader import VisiumReader
-from .readers.HudsonReader import HudsonReader
+from readers.AbaloReader import AbaloReader
+from readers.BatiukReader import BatiukReader
+from readers.EricksonReader import EricksonReader
+from readers.FanReader import FanReader
+from readers.MirzazadehReader import MirzazadehReader
+from readers.ParigiReader import ParigiReader
+from readers.VicariReader import VicariReader
+from readers.VillacampaReader import VillacampaReader
+from readers.VisiumReader import VisiumReader
+from readers.HudsonReader import HudsonReader
+#Remover el directorio padre al sys.path 
+sys.path.append(str(SPARED_PATH))
 
 # Remove the max limit of pixels in a figure
 Image.MAX_IMAGE_PIXELS = None
 
 # Get the path of the spared database
-SPARED_PATH = pathlib.Path(__file__).parent
+#SPARED_PATH = pathlib.Path(__file__).parent
 
 # Set warnings to ignore
 warnings.filterwarnings("ignore", message="No data for colormapping provided via 'c'. Parameters 'cmap' will be ignored")
@@ -272,12 +282,13 @@ class SpatialDataset():
             collection_processed.write(os.path.join(self.dataset_path, f'adata.h5ad'))
 
             # QC plotting
-            visualize.plot_tests(collection_processed, collection_raw)
+            #TODO: ¿Borrar la parte de visualización?
+            #visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
             # Copy figures folder into public database
             os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-            if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-            shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+            #if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+            #    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+            #shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
             
             # Create README for dataset
             if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
@@ -297,12 +308,13 @@ class SpatialDataset():
             force_plotting = False
             if force_plotting:
                 collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
-                visualize.plot_tests(collection_processed, collection_raw)
+                #TODO: ¿Borrar la parte de visualización?
+                #visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
                 # Copy figures folder into public database
                 os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-                if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-                shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+                #if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                #    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+                #shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
                 
                 # Create README for dataset
                 if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):

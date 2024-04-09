@@ -102,7 +102,7 @@ def get_plotting_slides_adata(collection: ad.AnnData, slide_list: str) -> list:
         slide_adata = collection[collection.obs['slide_id'] == slide].copy()
         # Modify the uns dictionary to include only the information of the slide
         slide_adata.uns['spatial'] = {slide: collection.uns['spatial'][slide]}
-        s_adata_list.apprend(slide_adata)
+        s_adata_list.append(slide_adata)
 
     # Return the slides
     return s_adata_list
