@@ -28,6 +28,7 @@ import squidpy as sq
 from torch_geometric.utils import from_scipy_sparse_matrix
 from typing import Tuple
 import sys
+from typing import Tuple
 #Get the path of the spared database
 #SPARED_PATH = pathlib.Path(__file__).parent
 
@@ -1025,7 +1026,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
 ### Adata dataloader building function:
 
 # TODO: Check documentation
-def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> tuple[AnnLoader, AnnLoader, AnnLoader]:
+def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
     This function returns the dataloaders for the pre-training phase. This means training a purely vision-based model on only
     the patches to predict the gene expression of the patches.
@@ -1078,7 +1079,7 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
 ### Graph building functions:
 
 # TODO: Check documentation
-def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> tuple[dict,int]:
+def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> Tuple[dict,int]:
     """
     This function receives an AnnData object with a single slide and for each node computes the graph in an
     n_hops radius in a pytorch geometric format. It returns a dictionary where the patch names are the keys
@@ -1283,7 +1284,7 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
 
 # TODO: Check documentation
 def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
-                          shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
+                          shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
     # Get dictionary of parameters to get the graphs
     curr_graph_params = {
         'n_hops': n_hops,
