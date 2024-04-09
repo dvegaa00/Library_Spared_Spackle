@@ -228,6 +228,7 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 
 ### Expression data processing functions:
 
+# FIXME: Put the organism as a parameter instead of in the name of the dataset
 def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
     This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the gtf annotation file.
@@ -691,16 +692,18 @@ def compute_moran(adata: ad.AnnData, from_layer: str, hex_geometry: bool) -> ad.
     # Return the updated AnnData object
     return adata
 
-# TODO: Check documentation
+# TODO: Fix documentation when the internal fixme is solved
 def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
     """
-    This function filters the genes in adata.var by the Moran's I. It keeps the n_keep genes with the highest Moran's I.
-    The Moran's I values will be selected from adata.var[f'{from_layer}_moran'].
+    This function filters the genes in adata.var by the Moran's I statistic. It keeps the n_keep genes with the highest Moran's I.
+    The Moran's I values will be selected from adata.var[f'{from_layer}_moran']. The column with the Moran's I values must be present in adata.var.
+    In case n_keep <= 0, it means the number of genes is no specified. Then we compute w = adata.n_vars * 0.25 and assign n_keep 32 or 128 depending
+    on which is the closest to w. 
 
     Args:
-        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'].
+        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'] column.
         n_keep (int): The number of genes to keep.
-        from_layer (str): Layer for which the Moran's I was computed the key in adata.var is f'{from_layer}_moran'.
+        from_layer (str): Layer for which the Moran's I was already computed (f'{from_layer}_moran').
 
     Returns:
         ad.AnnData: The updated AnnData object with the filtered genes.
@@ -709,6 +712,7 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Assert that the number of genes is at least n_keep
     assert adata.n_vars >= n_keep, f'The number of genes in the AnnData object is {adata.n_vars}, which is less than n_keep ({n_keep}).'
 
+    # FIXME: This part is wierd, we can define a simple threshold without all the computation
     # Select amount of top genes depending on the available amount if n_keep is not specified
     if n_keep <= 0:
         n_keep = round(adata.n_vars * 0.25, 0)
@@ -731,9 +735,23 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Return the updated AnnData object
     return adata
 
-# TODO: Check documentation
-def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 
+# TODO: Fix documentation when the internal fixme is solved. Another option is to put this function inside the initial preprocessing.
+def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
+    """
+    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of 'noisy_d'
+    or 'noisy' depending on the prediction layer. The noisy layer is created by returning the missing values to an already denoised layer of the adata.
+    In the case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to the missing values. In the case the source
+    layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values. missing values are specified by
+    the binary ada.layers['mask'] layer.
+
+    Args:
+        adata (ad.AnnData): The AnnData object to update. Must have the prediction layer, the gene means if its a delta layer, and the mask layer.
+        prediction_layer (str): The layer that will be corrupted to create the noisy layer.
+
+    Returns:
+        ad.AnnData: The updated AnnData object with the noisy layer added.
+    """
     if 'delta' in prediction_layer or 'noisy_d' in prediction_layer:
     # FIXME: make it flexible for other prediction layers different to c_d_log1p
         # Get vector with gene means
@@ -768,9 +786,12 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 
     return adata
 
-# TODO: Check documentation
+# FIXME: hex_geometry default set to True (?). Check if this is needed.
+# FIXME: Shouldn't dataset be inside the param_dict and not a parameter
+# FIXME: Maybe the organism should be a key of the param_dict
+# FIXME: Hex geometry should also be inside the param_dict
+# TODO: Fix documentation when the above fixmes are solved.
 def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
-    # FIXME: hex_geometry default set to True (?)
     """
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
     (adata.X). The processing pipeline is the following:
@@ -781,24 +802,38 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
         4. Compute moran I for each gene in each slide and average moranI across slides (add results to .var['d_log1p_moran'])
         5. Filter dataset to keep the top param_dict['top_moran_genes'] genes with highest moran I.
         6. Perform ComBat batch correction if specified by the 'combat_key' parameter (c_d_log1p layer)
-        7. Compute the deltas from the mean for each gene (computed from log1p layer and c_d_log1p layer if batch correction was performed)
-        8. Add a binary mask layer specifying valid observations for metric computation.
-
+        7. Compute the deltas from the mean for each gene (computed from log1p, d_log1p and c_log1p, c_d_log1p layer if batch correction was performed)
+        8. Add a binary mask layer specifying valid observations for metric computation (mask layer, True for valid observations, False for missing values).
 
     Args:
-        adata (ad.AnnData): The AnnData object to process. Must be already filtered.
-        param_dict (dict): Dictionary that contains filtering and processing parameters.
-        # TODO: Set a default param_dict?
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                            used to compute the spatial neighbors and only true for visium datasets.
+        dataset (str): The dataset name. Must contain the substring 'mouse' or 'human' to specify the reference genome for TPM normalization.
+        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the filter_dataset() function.
+        param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:
+
+                            - 'top_moran_genes': (int) The number of genes to keep after filtering by Moran's I. If set to 0, then the number of genes is internally computed.
+                            - 'combat_key': (str) The column in adata.obs that defines the batches for ComBat batch correction. If set to 'None', then no batch correction is performed.
+        
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.
 
     Returns:
-        ad.Anndata: The processed AnnData object with all the layers and results added.
+        ad.Anndata: The processed AnnData object with all the layers and results added. A list of includded layers in adata.layers is:
+
+                    - 'counts': Raw counts of the dataset.
+                    - 'tpm': TPM normalized data.
+                    - 'log1p': Log1p transformed data (base 2.0).
+                    - 'd_log1p': Denoised data with adaptive median filter.
+                    - 'c_log1p': Batch corrected data with ComBat (only if combat_key is not 'None').
+                    - 'c_d_log1p': Batch corrected and denoised data with adaptive median filter (only if combat_key is not 'None').
+                    - 'deltas': Deltas from the mean expression for log1p.
+                    - 'd_deltas': Deltas from the mean expression for d_log1p.
+                    - 'c_deltas': Deltas from the mean expression for c_log1p (only if combat_key is not 'None').
+                    - 'c_d_deltas': Deltas from the mean expression for c_d_log1p (only if combat_key is not 'None').
+                    - 'mask': Binary mask layer. True for valid observations, False for imputed missing values.
     """
 
     ### Compute all the processing steps
     # NOTE: The d prefix stands for denoised
-    # NOTE: The c prefix stands for combat
+    # NOTE: The c prefix stands for combat corrected
 
     # Start the timer and print the start message
     start = time()
@@ -807,33 +842,34 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     # First add raw counts to adata.layers['counts']
     adata.layers['counts'] = adata.X.toarray()
     
-    # Make TPM normalization
+    # 1. Make TPM normalization
     adata = tpm_normalization(dataset, adata, from_layer='counts', to_layer='tpm')
 
-    # Transform the data with log1p (base 2.0)
+    # 2. Transform the data with log1p (base 2.0)
     adata = log1p_transformation(adata, from_layer='tpm', to_layer='log1p')
 
-    # Denoise the data with pepper noise
+    # 3. Denoise the data with adaptive median filter
     adata = clean_noise(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=hex_geometry)
 
-    # Compute average moran for each gene in the layer d_log1p 
+    # 4. Compute average moran for each gene in the layer d_log1p 
     adata = compute_moran(adata, hex_geometry=hex_geometry, from_layer='d_log1p')
 
-    # Filter genes by Moran's I
+    # 5. Filter genes by Moran's I
     adata = filter_by_moran(adata, n_keep=param_dict['top_moran_genes'], from_layer='d_log1p')
 
-    # If combat key is specified, apply batch correction
+    # 6. If combat key is specified, apply batch correction
     if param_dict['combat_key'] != 'None':
         adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='log1p', to_layer='c_log1p')
         adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='d_log1p', to_layer='c_d_log1p')
 
-    # Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
+    # 7. Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
     adata = get_deltas(adata, from_layer='log1p', to_layer='deltas')
     adata = get_deltas(adata, from_layer='d_log1p', to_layer='d_deltas')
-    adata = get_deltas(adata, from_layer='c_log1p', to_layer='c_deltas')
-    adata = get_deltas(adata, from_layer='c_d_log1p', to_layer='c_d_deltas')
+    if param_dict['combat_key'] != 'None':
+        adata = get_deltas(adata, from_layer='c_log1p', to_layer='c_deltas')
+        adata = get_deltas(adata, from_layer='c_d_log1p', to_layer='c_d_deltas')
 
-    # Add a binary mask layer specifying valid observations for metric computation
+    # 8. Add a binary mask layer specifying valid observations for metric computation
     adata.layers['mask'] = adata.layers['tpm'] != 0
     # Print with the percentage of the dataset that was replaced
     print('Percentage of imputed observations with median filter: {:5.3f}%'.format(100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))
@@ -850,6 +886,20 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 
 # TODO: Check documentation
 def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
+    """
+    _summary_
+
+    Args:
+        adata (ad.AnnData): _description_
+        backbone (str, optional): _description_. Defaults to 'densenet'.
+        model_path (str, optional): _description_. Defaults to "best_stnet.pt".
+        preds (bool, optional): _description_. Defaults to True.
+        patch_size (int, optional): _description_. Defaults to 224.
+        patch_scale (float, optional): _description_. Defaults to 1.0.
+
+    Raises:
+        ValueError: _description_
+    """
     # TODO: add documentation on function's purpose, arguments, and what does it return.
     # FIXME: keep patch_scale as parameter?    
 
