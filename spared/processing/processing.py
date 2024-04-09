@@ -46,10 +46,10 @@ sys.path.remove(str(SPARED_PATH))
 def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData:
     """
     This function receives a slide name and returns an adata object of the specified slide based on the collection of slides
-    in collection.
+    in the collection parameter.
 
     Args: 
-        collection (ad.AnnData): AnnData object with all the slides.
+        collection (ad.AnnData): AnnData object with all the slides concatenated.
         slide (str): Name of the slide to get from the collection. Must be in the column 'slide_id' of the obs dataframe of the collection.
 
     Returns:
@@ -68,6 +68,12 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
     This function computes the expression fraction for each gene in the dataset. Internally it gets the
     expression fraction for each slide and then takes the minimum across all the slides.
+
+    Args:
+        adata (ad.AnnData): A slide collection where a non expressed gene is defined as having a value of 0 in the adata.X matrix.
+
+    Returns:
+        ad.AnnData: The updated slide collection with the exp_frac added to the var dataframe.
     """
     # Get the unique slide ids
     slide_ids = adata.obs['slide_id'].unique()
@@ -95,13 +101,14 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
 
 def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """
-    This function computes the global expression fraction for each gene in the dataset.
+    This function computes the global expression fraction for each gene in the dataset. Internally it computes the fraction of non-zero
+    observations for each gene across all the slides in the collection.
 
     Args:
-        adata (ad.AnnData): An unfiltered and unprocessed (in raw counts) slide collection.
+        adata (ad.AnnData): A slide collection where a non expressed gene is defined as having a value of 0 in the adata.X matrix.
 
     Returns:
-        ad.AnnData: The same slide collection with the glob_exp_frac added to the var dataframe.
+        ad.AnnData: The updated slide collection with the glob_exp_frac added to the var dataframe.
     """
     # Get global expression fraction
     glob_exp_frac = np.squeeze(np.asarray((adata.X > 0).sum(axis=0) / adata.n_obs))
@@ -117,32 +124,38 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     This function takes a completely unfiltered and unprocessed (in raw counts) slide collection and filters it
     (both samples and genes) according to the param_dict argument. A summary list of the steps is the following:
 
-        1. Filter out observations with total_counts outside the range [cell_min_counts, cell_max_counts].
+        1. Filter out observations with total_counts outside the range [param_dict['cell_min_counts'], param_dict['cell_max_counts']].
            This filters out low quality observations not suitable for analysis.
         2. Compute the exp_frac for each gene. This means that for each slide in the collection we compute
-            the fraction of the observations that express each gene and then took the minimum across all the slides.
+            the fraction of the observations that express each gene and then take the minimum across all the slides.
+            (see get_exp_frac function for more details).
         3. Compute the glob_exp_frac for each gene. This is similar to the exp_frac but instead of computing for each
-           slide and taking the minimum we compute it for the whole collection. Slides don't matter here.
-        4. Filter out genes. This depends on the wildcard_genes parameter and the options are the following:
-            
-            a. 'None':
-                - Filter out genes that are not expressed in at least min_exp_frac of spots in each slide.
-                - Filter out genes that are not expressed in at least min_glob_exp_frac of cells in the whole collection.
-                - Filter out genes with counts outside the range [gene_min_counts, gene_max_counts]
-            
-            b. else:
-                - Read .txt file with wildcard_genes and leave only the genes that are in this file
-
-        5. If there are cells with zero counts in all genes then remove them
-        6. Compute quality control metrics
+           slide and taking the minimum we compute it for the whole collection. Slides don't matter here
+           (see get_glob_exp_frac function for more details).
+        4. Filter out genes depending on the param_dict['wildcard_genes'] value, the options are the following:
+            a. param_dict['wildcard_genes'] == 'None':
+                - Filter out genes that are not expressed in at least param_dict['min_exp_frac'] of spots in each slide.
+                - Filter out genes that are not expressed in at least param_dict['min_glob_exp_frac'] of cells in the whole collection.
+                - Filter out genes with counts outside the range [param_dict['gene_min_counts'], param_dict['gene_max_counts']]
+            b. param_dict['wildcard_genes'] != 'None':
+                - Read .txt file specified by param_dict['wildcard_genes'] and leave only the genes that are in this file.
+        5. If there are cells with zero counts in all genes then remove them.
+        6. Compute quality control metrics using scanpy's sc.pp.calculate_qc_metrics function.
 
     Args:
-        adata (ad.AnnData): An unfiltered and unprocessed (in raw counts) slide collection. Has the patches in obsm.
-        param_dict (dict): Dictionary that contains filtering and processing parameters.
-        # TODO: Set a default param_dict?
+        adata (ad.AnnData): An unfiltered (unexpressed genes are encoded as 0 on the adata.X matrix) slide collection.
+        param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:
+
+            - 'cell_min_counts': (int) Minimum total counts for a spot to be considered valid.
+            - 'cell_max_counts': (int) Maximum total counts for a spot to be considered valid.
+            - 'gene_min_counts': (int) Minimum total counts for a gene to be considered valid.
+            - 'gene_max_counts': (int) Maximum total counts for a gene to be considered valid.
+            - 'min_exp_frac': (float) Minimum fraction of spots in any slide that must express a gene for it to be considered valid.
+            - 'min_glob_exp_frac': (float) Minimum fraction of spots in the whole collection that must express a gene for it to be considered valid.
+            - 'wildcard_genes': (str) Path to a .txt file with the genes to keep or 'None' to filter genes based on the other keys.
 
     Returns:
-        ad.AnnData: The filtered adata collection. Patches have not been reshaped here.
+        ad.AnnData: The filtered adata collection.
     """
 
     # Start tracking time
@@ -224,19 +237,24 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 
     return adata
 
-
 ### Expression data processing functions:
 
+# FIXME: Put the organism as a parameter instead of in the name of the dataset
 def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
-    This function apply tpm normalization to an AnnData object. It also removes genes that are not fount in the gtf annotation file.
-    The counts of the anndata are taken from the layer 'from_layer' and the results are stored in the layer 'to_layer'.
+    This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the gtf annotation file.
+    The counts of the anndata are taken from the layer 'from_layer' and the results are stored in the layer 'to_layer'. It can perform the normalization
+    for human (https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz) and mouse
+    (https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz) reference genomes. To specify which GTF annotation
+    file should be used, the string parameter 'dataset' must contain the substring 'mouse' or 'human'.
+
     Args:
+        dataset (str): The dataset name. Must contain the substring 'mouse' or 'human' to specify the reference genome.
         adata (ad.Anndata): The Anndata object to normalize.
         from_layer (str): The layer to take the counts from.
         to_layer (str): The layer to store the results of the normalization.
     Returns:
-        ad.Anndata: The normalized Anndata object with TPM values in the .layers[to_layer] attribute.
+        ad.Anndata: The updated Anndata object with TPM values in the .layers[to_layer] attribute.
     """
     
     # Get the number of genes before filtering
@@ -250,7 +268,7 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
             'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz',
             out = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz'))
 
-    # Define gtf path
+    # Define gtf human path
     gtf_path = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf')
 
     # Unzip the data in annotations folder if it is not already unzipped
@@ -259,6 +277,7 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
             with open(gtf_path, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
+    # FIXME: Set up automatic download of mouse gtf file
     # Define gtf mouse path
     gtf_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf')
 
@@ -326,8 +345,8 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
 
 def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
-    Simple wrapper around sc.pp.log1p to transform data from adata.layers[from_layer] with log1p (base 2)
-    and save it in adata.layers[to_layer].
+    Performs logarithmic transformation over anndata.layers[from_layer]. Simple wrapper around scanpy's sc.pp.log1p()
+    to transform data from adata.layers[from_layer] with log1p (base 2) and save it in adata.layers[to_layer].
 
     Args:
         adata (ad.AnnData): The AnnData object to transform.
@@ -335,7 +354,7 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
         to_layer (str): The layer to store the results of the transformation.
 
     Returns:
-        ad.AnnData: The transformed AnnData object with log1p transformed data in adata.layers[to_layer].
+        ad.AnnData: The updated AnnData object with log1p transformed data in adata.layers[to_layer].
     """
 
     # Transform the data with log1p
@@ -349,43 +368,44 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
 
 def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
     """
-    This wrapper function that computes the adaptive median filter for all the slides in the collection and then concatenates the results
-    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper function.
+    Function that cleans noise with a modified adaptive median filter for each slide in an anndata collection and then concatenates the results
+    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper() function.
 
     Args:
         collection (ad.AnnData): The AnnData collection to process. Contains all the slides.
         from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
         to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
         n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                used to compute the spatial neighbors and only true for visium datasets.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.
 
     Returns:
-        ad.AnnData: The processed AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
+        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
     """
     
+    # FIXME: This function can be used alone. Think of getting it outside.
     ### Define function to get spatial neighbors in an AnnData object
     def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
         """
         This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
         a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
         and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-        inside a n_hops neighborhood of the observation.
+        inside an n_hops neighborhood (vicinity) of the observation.
 
         Args:
             adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
             n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
             hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                    used to compute the spatial neighbors and only true for visium datasets.
+                                 true for visium datasets.
 
         Returns:
             dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
         """
+
         # Compute spatial_neighbors
         if hex_geometry:
             sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
         else:
-            sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid STNet dataset case
+            sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid dataset case
 
         # Get the adjacency matrix
         adj_matrix = adata.obsp['spatial_connectivities']
@@ -423,9 +443,11 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
     ### Define cleaning function for single slide:
     def adaptive_median_filter_pepper(adata: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
         """
-        This function computes the adaptive median filter for pairs (obs, gene) with a zero value (peper noise) in the layer 'from_layer' and
-        stores the result in the layer 'to_layer'. The max window size is a neighborhood of n_hops defined by the conectivity hex_geometry
-        inputed by parameter. This means the number of concentric rings in a graph to take into account to compute the median.
+        This function computes a modified adaptive median filter for pairs (obs, gene) with a zero value (peper noise) in the layer 'from_layer' and
+        stores the result in the layer 'to_layer'. The max window size is a neighborhood of n_hops defined by the conectivity (hexagonal or grid).
+        This means the number of concentric rings in a graph to take into account to compute the median.
+
+        The adaptive median filter denoises each gene independently. In other words gene A has no influence on the denoising of gene B.
 
         Args:
             adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
@@ -433,7 +455,7 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
             to_layer (str): The layer to store the results of the adaptive median filter.
             n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
             hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                used to compute the spatial neighbors and only true for visium datasets.
+                                 true for visium datasets.
 
         Returns:
             ad.AnnData: The AnnData object with the results of the adaptive median filter stored in the layer 'to_layer'.
@@ -560,17 +582,17 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
 
 def combat_transformation(adata: ad.AnnData, batch_key: str, from_layer: str, to_layer: str) -> ad.AnnData:
     """
-    Batch correction using pycombat. The batches are defined by the batch_key column in adata.obs. The input data for
+    Compute batch correction using pycombat. The batches are defined by the batch_key column in adata.obs. The input data for
     the batch correction is adata.layers[from_layer] and the output is stored in adata.layers[to_layer].
 
     Args:
-        adata (ad.AnnData): The AnnData object to transform. Must have log1p transformed data in adata.layers[from_layer].
+        adata (ad.AnnData): The AnnData object to transform. Must have logarithmically transformed data in adata.layers[from_layer].
         batch_key (str): The column in adata.obs that defines the batches.
         from_layer (str): The layer to take the data from.
         to_layer (str): The layer to store the results of the transformation.
 
     Returns:
-        ad.AnnData: The transformed AnnData object with batch corrected data in adata.layers[to_layer].
+        ad.AnnData: The updated AnnData object with batch corrected data in adata.layers[to_layer].
     """
     # Get expression matrix dataframe
     df = adata.to_df(layer = from_layer).T
@@ -588,9 +610,12 @@ def get_deltas(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
     Compute the deviations from the mean expression of each gene in adata.layers[from_layer] and save them
     in adata.layers[to_layer]. Also add the mean expression of each gene to adata.var[f'{from_layer}_avg_exp'].
+    Average expression is computed using the 'train' determined by the adata.obs['split'] column. However all
+    observations are used to compute the deltas.
 
     Args:
         adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
+                            Must also have the adata.obs['split'] column with the 'train' values.
         from_layer (str): The layer to take the data from.
         to_layer (str): The layer to store the results of the transformation.
 
@@ -620,16 +645,16 @@ def get_deltas(adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     # Return the updated AnnData object
     return adata
 
-def compute_moran(adata: ad.AnnData, hex_geometry: bool, from_layer: str) -> ad.AnnData:
+def compute_moran(adata: ad.AnnData, from_layer: str, hex_geometry: bool) -> ad.AnnData:
     """
-    This function cycles over each slide in the adata object and computes the Moran's I for each gene.
-    After that, it averages the Moran's I for each gene across all slides and saves it in adata.var[f'{from_layer}_moran'].
-    The input data for the Moran's I computation is adata.layers[from_layer].
+    Compute average Moran's I statistic for a collection of slides. Internally cycles over each slide in the adata object
+    and computes the Moran's I statistic for each gene. After that, it averages the Moran's I for each gene across all
+    slides and saves it in adata.var[f'{from_layer}_moran'].The input data for the Moran's I computation is adata.layers[from_layer].
 
     Args:
         adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].
         from_layer (str): The key in adata.layers with the values used to compute Moran's I.
-        hex_geometry (bool): Whether the data is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I.
+        hex_geometry (bool): Whether the geometry is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I. Only true for visium datasets.
 
     Returns:
         ad.AnnData: The updated AnnData object with the average Moran's I for each gene in adata.var[f'{from_layer}_moran'].
@@ -678,15 +703,18 @@ def compute_moran(adata: ad.AnnData, hex_geometry: bool, from_layer: str) -> ad.
     # Return the updated AnnData object
     return adata
 
+# TODO: Fix documentation when the internal fixme is solved
 def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
     """
-    This function filters the genes in adata.var by the Moran's I. It keeps the n_keep genes with the highest Moran's I.
-    The Moran's I values will be selected from adata.var[f'{from_layer}_moran'].
+    This function filters the genes in adata.var by the Moran's I statistic. It keeps the n_keep genes with the highest Moran's I.
+    The Moran's I values will be selected from adata.var[f'{from_layer}_moran']. The column with the Moran's I values must be present in adata.var.
+    In case n_keep <= 0, it means the number of genes is no specified. Then we compute w = adata.n_vars * 0.25 and assign n_keep 32 or 128 depending
+    on which is the closest to w. 
 
     Args:
-        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'].
+        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f'{from_layer}_moran'] column.
         n_keep (int): The number of genes to keep.
-        from_layer (str): Layer for which the Moran's I was computed the key in adata.var is f'{from_layer}_moran'.
+        from_layer (str): Layer for which the Moran's I was already computed (f'{from_layer}_moran').
 
     Returns:
         ad.AnnData: The updated AnnData object with the filtered genes.
@@ -695,6 +723,7 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Assert that the number of genes is at least n_keep
     assert adata.n_vars >= n_keep, f'The number of genes in the AnnData object is {adata.n_vars}, which is less than n_keep ({n_keep}).'
 
+    # FIXME: This part is wierd, we can define a simple threshold without all the computation
     # Select amount of top genes depending on the available amount if n_keep is not specified
     if n_keep <= 0:
         n_keep = round(adata.n_vars * 0.25, 0)
@@ -717,8 +746,23 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Return the updated AnnData object
     return adata
 
-def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 
+# TODO: Fix documentation when the internal fixme is solved. Another option is to put this function inside the initial preprocessing.
+def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
+    """
+    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of 'noisy_d'
+    or 'noisy' depending on the prediction layer. The noisy layer is created by returning the missing values to an already denoised layer of the adata.
+    In the case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to the missing values. In the case the source
+    layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values. missing values are specified by
+    the binary ada.layers['mask'] layer.
+
+    Args:
+        adata (ad.AnnData): The AnnData object to update. Must have the prediction layer, the gene means if its a delta layer, and the mask layer.
+        prediction_layer (str): The layer that will be corrupted to create the noisy layer.
+
+    Returns:
+        ad.AnnData: The updated AnnData object with the noisy layer added.
+    """
     if 'delta' in prediction_layer or 'noisy_d' in prediction_layer:
     # FIXME: make it flexible for other prediction layers different to c_d_log1p
         # Get vector with gene means
@@ -753,8 +797,12 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 
     return adata
 
+# FIXME: hex_geometry default set to True (?). Check if this is needed.
+# FIXME: Shouldn't dataset be inside the param_dict and not a parameter
+# FIXME: Maybe the organism should be a key of the param_dict
+# FIXME: Hex geometry should also be inside the param_dict
+# TODO: Fix documentation when the above fixmes are solved.
 def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
-    # FIXME: hex_geometry default set to True (?)
     """
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
     (adata.X). The processing pipeline is the following:
@@ -765,24 +813,38 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
         4. Compute moran I for each gene in each slide and average moranI across slides (add results to .var['d_log1p_moran'])
         5. Filter dataset to keep the top param_dict['top_moran_genes'] genes with highest moran I.
         6. Perform ComBat batch correction if specified by the 'combat_key' parameter (c_d_log1p layer)
-        7. Compute the deltas from the mean for each gene (computed from log1p layer and c_d_log1p layer if batch correction was performed)
-        8. Add a binary mask layer specifying valid observations for metric computation.
-
+        7. Compute the deltas from the mean for each gene (computed from log1p, d_log1p and c_log1p, c_d_log1p layer if batch correction was performed)
+        8. Add a binary mask layer specifying valid observations for metric computation (mask layer, True for valid observations, False for missing values).
 
     Args:
-        adata (ad.AnnData): The AnnData object to process. Must be already filtered.
-        param_dict (dict): Dictionary that contains filtering and processing parameters.
-        # TODO: Set a default param_dict?
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                            used to compute the spatial neighbors and only true for visium datasets.
+        dataset (str): The dataset name. Must contain the substring 'mouse' or 'human' to specify the reference genome for TPM normalization.
+        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the filter_dataset() function.
+        param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:
+
+                            - 'top_moran_genes': (int) The number of genes to keep after filtering by Moran's I. If set to 0, then the number of genes is internally computed.
+                            - 'combat_key': (str) The column in adata.obs that defines the batches for ComBat batch correction. If set to 'None', then no batch correction is performed.
+        
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.
 
     Returns:
-        ad.Anndata: The processed AnnData object with all the layers and results added.
+        ad.Anndata: The processed AnnData object with all the layers and results added. A list of includded layers in adata.layers is:
+
+                    - 'counts': Raw counts of the dataset.
+                    - 'tpm': TPM normalized data.
+                    - 'log1p': Log1p transformed data (base 2.0).
+                    - 'd_log1p': Denoised data with adaptive median filter.
+                    - 'c_log1p': Batch corrected data with ComBat (only if combat_key is not 'None').
+                    - 'c_d_log1p': Batch corrected and denoised data with adaptive median filter (only if combat_key is not 'None').
+                    - 'deltas': Deltas from the mean expression for log1p.
+                    - 'd_deltas': Deltas from the mean expression for d_log1p.
+                    - 'c_deltas': Deltas from the mean expression for c_log1p (only if combat_key is not 'None').
+                    - 'c_d_deltas': Deltas from the mean expression for c_d_log1p (only if combat_key is not 'None').
+                    - 'mask': Binary mask layer. True for valid observations, False for imputed missing values.
     """
 
     ### Compute all the processing steps
     # NOTE: The d prefix stands for denoised
-    # NOTE: The c prefix stands for combat
+    # NOTE: The c prefix stands for combat corrected
 
     # Start the timer and print the start message
     start = time()
@@ -791,33 +853,34 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     # First add raw counts to adata.layers['counts']
     adata.layers['counts'] = adata.X.toarray()
     
-    # Make TPM normalization
+    # 1. Make TPM normalization
     adata = tpm_normalization(dataset, adata, from_layer='counts', to_layer='tpm')
 
-    # Transform the data with log1p (base 2.0)
+    # 2. Transform the data with log1p (base 2.0)
     adata = log1p_transformation(adata, from_layer='tpm', to_layer='log1p')
 
-    # Denoise the data with pepper noise
+    # 3. Denoise the data with adaptive median filter
     adata = clean_noise(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=hex_geometry)
 
-    # Compute average moran for each gene in the layer d_log1p 
+    # 4. Compute average moran for each gene in the layer d_log1p 
     adata = compute_moran(adata, hex_geometry=hex_geometry, from_layer='d_log1p')
 
-    # Filter genes by Moran's I
+    # 5. Filter genes by Moran's I
     adata = filter_by_moran(adata, n_keep=param_dict['top_moran_genes'], from_layer='d_log1p')
 
-    # If combat key is specified, apply batch correction
+    # 6. If combat key is specified, apply batch correction
     if param_dict['combat_key'] != 'None':
         adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='log1p', to_layer='c_log1p')
         adata = combat_transformation(adata, batch_key=param_dict['combat_key'], from_layer='d_log1p', to_layer='c_d_log1p')
 
-    # Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
+    # 7. Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
     adata = get_deltas(adata, from_layer='log1p', to_layer='deltas')
     adata = get_deltas(adata, from_layer='d_log1p', to_layer='d_deltas')
-    adata = get_deltas(adata, from_layer='c_log1p', to_layer='c_deltas')
-    adata = get_deltas(adata, from_layer='c_d_log1p', to_layer='c_d_deltas')
+    if param_dict['combat_key'] != 'None':
+        adata = get_deltas(adata, from_layer='c_log1p', to_layer='c_deltas')
+        adata = get_deltas(adata, from_layer='c_d_log1p', to_layer='c_d_deltas')
 
-    # Add a binary mask layer specifying valid observations for metric computation
+    # 8. Add a binary mask layer specifying valid observations for metric computation
     adata.layers['mask'] = adata.layers['tpm'] != 0
     # Print with the percentage of the dataset that was replaced
     print('Percentage of imputed observations with median filter: {:5.3f}%'.format(100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))
@@ -832,7 +895,22 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 
 ### Patch processing function:
 
+# TODO: Check documentation
 def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
+    """
+    _summary_
+
+    Args:
+        adata (ad.AnnData): _description_
+        backbone (str, optional): _description_. Defaults to 'densenet'.
+        model_path (str, optional): _description_. Defaults to "best_stnet.pt".
+        preds (bool, optional): _description_. Defaults to True.
+        patch_size (int, optional): _description_. Defaults to 224.
+        patch_scale (float, optional): _description_. Defaults to 1.0.
+
+    Raises:
+        ValueError: _description_
+    """
     # TODO: add documentation on function's purpose, arguments, and what does it return.
     # FIXME: keep patch_scale as parameter?    
 
@@ -946,7 +1024,8 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
 
 ### Adata dataloader building function:
 
-def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
+# TODO: Check documentation
+def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
     This function returns the dataloaders for the pre-training phase. This means training a purely vision-based model on only
     the patches to predict the gene expression of the patches.
@@ -998,7 +1077,8 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
 
 ### Graph building functions:
 
-def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> Tuple[dict,int]:
+# TODO: Check documentation
+def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> tuple[dict,int]:
     """
     This function receives an AnnData object with a single slide and for each node computes the graph in an
     n_hops radius in a pytorch geometric format. It returns a dictionary where the patch names are the keys
@@ -1126,6 +1206,7 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
     # Return the graph dict
     return graph_dict, max_abs_d_pos
 
+# TODO: Check documentation
 def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
     """This function adds the positional embeddings of each node to the graph dict.
@@ -1156,6 +1237,7 @@ def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
     return graph_dict
 
+# TODO: Check documentation
 def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True, patch_scale: float=1.0) -> dict:
     """
     This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset. For details
@@ -1199,8 +1281,9 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
     # Return the graph dict
     return graph_dict
 
+# TODO: Check documentation
 def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
-                          shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
+                          shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
     # Get dictionary of parameters to get the graphs
     curr_graph_params = {
         'n_hops': n_hops,
