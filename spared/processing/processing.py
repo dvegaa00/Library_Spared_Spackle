@@ -29,6 +29,9 @@ from torch_geometric.utils import from_scipy_sparse_matrix
 from typing import Tuple
 import sys
 from typing import Tuple
+
+# FIXME: Remove comments in spanish
+
 #Get the path of the spared database
 #SPARED_PATH = pathlib.Path(__file__).parent
 
@@ -39,7 +42,7 @@ SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(SPARED_PATH))
 #Import im_encoder.py file
 from embeddings import im_encoder
-#Remover el directorio padre al sys.path 
+# Remove the path from sys.path
 sys.path.remove(str(SPARED_PATH))
 
 ### Data analysis and filtering functions: 
@@ -896,27 +899,36 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 
 ### Patch processing function:
 
-# TODO: Check documentation
-def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
+
+# FIXME: keep patch_scale as parameter?
+# TODO: Fix documentation when the above fixme is solved.
+def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
     """
-    _summary_
+    This function computes embeddings or predictions for a given backbone model and adata object. It can optionally
+    compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are
+    stored in adata.obsm[f'embeddings_{backbone}'] or adata.obsm[f'predictions_{backbone}'] respectively. The patches
+    must be stored in adata.obsm[f'patches_scale_{patch_scale}'] and must be of shape (n_patches, patch_size*patch_size*3).
+
+    The function only modifies the AnnData object in place.
 
     Args:
-        adata (ad.AnnData): _description_
-        backbone (str, optional): _description_. Defaults to 'densenet'.
-        model_path (str, optional): _description_. Defaults to "best_stnet.pt".
-        preds (bool, optional): _description_. Defaults to True.
-        patch_size (int, optional): _description_. Defaults to 224.
-        patch_scale (float, optional): _description_. Defaults to 1.0.
+        adata (ad.AnnData): The AnnData object to process.
+        backbone (str, optional): A string specifiying the backbone model to use. Must be one of the following
+                                  ['resnet', 'resnet50', 'ConvNeXt', 'EfficientNetV2', 'InceptionV3', 'MaxVit', 'MobileNetV3',
+                                    'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResnet', 'densenet', 'swin']. Defaults to 'densenet'.
+        model_path (str, optional): The path to a stored model. If set to 'None', then a pretrained model is used. Defaults to "None".
+        preds (bool, optional): True if predictions are to be computed, False if embeddings are to be computed. Defaults to True.
+        patch_size (int, optional): The size of the patches. Defaults to 224.
+        patch_scale (float, optional): The scale of the patches. Defaults to 1.0.
 
     Raises:
-        ValueError: _description_
+        ValueError: If the backbone is not supported.
     """
-    # TODO: add documentation on function's purpose, arguments, and what does it return.
-    # FIXME: keep patch_scale as parameter?    
 
     # Define a cuda device if available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    # Define the model
     model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars)
 
     if model_path != "None":
@@ -927,6 +939,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
 
         model.load_state_dict(saved_model)
     
+    # Define the weights for the model depending on the backbone
     if backbone == 'resnet':
         weights = tmodels.ResNet18_Weights.DEFAULT
         if not preds:
@@ -982,9 +995,11 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
     else:
         raise ValueError(f'Backbone {backbone} not supported')
 
+    # Pass model to device and put in eval mode
     model.to(device)
     model.eval()
 
+    # Perform specific preprocessing for the model
     preprocess = weights.transforms(antialias=True)
 
     # Get the patches
@@ -1003,10 +1018,12 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
     outputs = []
 
     with torch.no_grad():
+        
         if preds:
             desc = 'Getting predictions'
         else:
             desc = 'Getting embeddings'
+        
         for batch in tqdm(dataloader, desc=desc):
             batch = batch.to(device)                    # Send batch to device                
             batch_output = model(batch)                 # Get embeddings or predictions
@@ -1025,11 +1042,13 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
 
 ### Adata dataloader building function:
 
-# TODO: Check documentation
+# TODO: Fix the internal fixme
 def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
-    This function returns the dataloaders for the pre-training phase. This means training a purely vision-based model on only
+    This function returns the dataloaders for training an image encoder. This means training a purely vision-based model on only
     the patches to predict the gene expression of the patches.
+
+    Dataloaders are returned as a tuple, if there is no test set for the dataset, then the test dataloader is None.
 
     Args:
         adata (ad.AnnData): The AnnData object that will be processed.
@@ -1044,9 +1063,9 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
     # Get the sample indexes for the train, validation and test sets
     idx_train, idx_val, idx_test = adata.obs[adata.obs.split == 'train'].index, adata.obs[adata.obs.split == 'val'].index, adata.obs[adata.obs.split == 'test'].index
 
-    ##### Adition to handle noisy training #####
+    ##### Addition to handle noisy training #####
 
-    # FIXME: should we keep the option of loading noisy data?
+    # FIXME: Put this in a part of the complete processing pipeline instead of the dataloader function.
     # Handle noisy training
     adata = add_noisy_layer(adata=adata, prediction_layer=layer)
 
@@ -1056,7 +1075,8 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
     imp_model_str = 'transformer model' if layer in ['c_t_log1p', 'c_t_deltas'] else 'median filter'
 
     # Print with the percentage of the dataset that was replaced
-    print('Percentage of imputed observations with {}: {:5.3f}%'.format(imp_model_str, 100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))
+    imp_pct = 100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)
+    print('Percentage of imputed observations with {}: {:5.3f}%'.format(imp_model_str, imp_pct))
 
     # If the prediction layer is some form of deltas, add the used mean of the layer as a column in the var
     if 'deltas' in layer:
@@ -1078,25 +1098,26 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
 
 ### Graph building functions:
 
-# TODO: Check documentation
-def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool, patch_scale: float=1.0) -> Tuple[dict,int]:
+def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool) -> Tuple[dict,int]:
     """
     This function receives an AnnData object with a single slide and for each node computes the graph in an
-    n_hops radius in a pytorch geometric format. It returns a dictionary where the patch names are the keys
-    and a pytorch geometric graph for each one as values. NOTE: The first node of every graph is the center.
+    n_hops radius in a pytorch geometric format. The AnnData object must have both embeddings and predictions in the
+    adata.obsm attribute.
+
+    It returns a dictionary where the patch names are the keys and a pytorch geometric graph for each one as
+    values. NOTE: The first node of every graph is the center.
 
     Args:
         adata (ad.AnnData): The AnnData object with the slide data.
         n_hops (int): The number of hops to compute the graph.
         layer (str): The layer of the graph to predict. Will be added as y to the graph.
         hex_geometry (bool): Whether the slide has hexagonal geometry or not.
-        patch_scale (float, optional): The scale of the patches to take into account. If bigger than 1, then the patches will be bigger than the original image. Defaults to 1.0.
 
     Returns:
         Tuple(dict,int)
         dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values.
             NOTE: The first node of every graph is the center.
-        int: Max absolute value of d pos in the slide                      
+        int: Max column or row difference between the center and the neighbors. Used for positional encoding.                   
     """
     # Compute spatial_neighbors
     if hex_geometry:
@@ -1147,9 +1168,7 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
 
     
     ### Get pytorch geometric graphs ###
-    patch_names = adata.obs.index.values                                                                        # Get global patch names
     layers_dict = {key: torch.from_numpy(adata.layers[key]).type(torch.float32) for key in adata.layers.keys()} # Get global layers
-    patches = torch.from_numpy(adata.obsm[f'patches_scale_{patch_scale}'])                                      # Get global patches
     pos = torch.from_numpy(adata.obs[['array_row', 'array_col']].values)                                        # Get global positions
 
     # Get embeddings and predictions keys
@@ -1175,26 +1194,22 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
         central_node_name = index_to_obs[i]                                                 # Get the name of the central node
         curr_nodes_idx = torch.tensor(neighbors_dict_index[i])                              # Get the indexes of the nodes in the graph
         curr_adj_matrix = matrices_dict[central_node_name]                                  # Get the adjacency matrix of the graph (precomputed)
-        curr_edge_index, curr_edge_attribute = from_scipy_sparse_matrix(curr_adj_matrix)    # Get the edge index and edge attribute of the graph
+        curr_edge_index, _ = from_scipy_sparse_matrix(curr_adj_matrix)                      # Get the edge index and edge attribute of the graph
         curr_layers = {key: layers_dict[key][curr_nodes_idx] for key in layers_dict.keys()} # Get the layers of the graph filtered by the nodes
         curr_pos = pos[curr_nodes_idx]                                                      # Get the positions of the nodes in the graph
         curr_d_pos = curr_pos - curr_pos[0]                                                 # Get the relative positions of the nodes in the graph
 
         # Define the graph
         graph_dict[central_node_name] = geo_Data(
-            # x=patches[curr_nodes_idx],
             y=curr_layers[layer],
             edge_index=curr_edge_index,
-            # edge_attr=curr_edge_attribute,
             pos=curr_pos,
             d_pos=curr_d_pos,
-            # patch_names=patch_names[neighbors_dict_index[i]],
             embeddings=embeddings[curr_nodes_idx],
             predictions=predictions[curr_nodes_idx] if predictions is not None else None,
             used_mean=used_mean if used_mean is not None else None,
             num_nodes=len(curr_nodes_idx),
             mask=layers_dict['mask'][curr_nodes_idx]
-            # **curr_layers
         )
 
         max_curr_d_pos=curr_d_pos.abs().max()
@@ -1207,13 +1222,15 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
     # Return the graph dict
     return graph_dict, max_abs_d_pos
 
-# TODO: Check documentation
+
 def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
-    """This function adds the positional embeddings of each node to the graph dict.
+    """
+    This function adds a transformer-like positional encodings to each graph in a graph dict. It adds the positional
+    encodings under the attribute 'positional_embeddings' for each graph. 
 
     Args:
-        graph_dict (dict): A dictionary where the patch names are the keys and pytorch geometric graph for each one as values
+        graph_dict (dict): A dictionary where the patch names are the keys and a pytorch geometric graphs for each one are values.
         max_d_pos (int): Max absolute value in the relative position matrix.
 
     Returns:
@@ -1238,23 +1255,23 @@ def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
     return graph_dict
 
-# TODO: Check documentation
-def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True, patch_scale: float=1.0) -> dict:
+
+def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True) -> dict:
     """
-    This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset. For details
-    on the get_graphs_one_slide function see its docstring.
+    This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset.
+    After computing the graph dicts for each slide it concatenates them into a single dictionary which is then used to compute
+    the positional embeddings for each graph.
+
+    For details see get_graphs_one_slide and get_sin_cos_positional_embeddings functions.
 
     Args:
         adata (ad.AnnData): The AnnData object used to build the graphs.
         n_hops (int): The number of hops to compute each graph.
         layer (str): The layer of the graph to predict. Will be added as y to the graph.
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                            used to compute the spatial neighbors and only true for visium datasets.
-        # FIXME: hex_geometry default set to True (?)
-        patch_scale (float, optional): The scale of the patches to take into account. If bigger than 1, then the patches will be bigger than the original image. Defaults to 1.0.
+        hex_geometry (bool): Whether the graph is hexagonal or not. Only true for visium datasets. Defaults to True.
 
     Returns:
-        dict: A dictionary where the slide names are the keys and pytorch geometric graphs are values.
+        dict: A dictionary where the spots' names are the keys and pytorch geometric graphs are values.
     """
 
     print('Computing graphs...')
@@ -1269,7 +1286,7 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
     # Iterate through slides
     for slide in tqdm(unique_ids, leave=True, position=0):
         curr_adata = get_slide_from_collection(adata, slide)
-        curr_graph_dict, max_curr_d_pos = get_graphs_one_slide(curr_adata, n_hops, layer, hex_geometry, patch_scale)
+        curr_graph_dict, max_curr_d_pos = get_graphs_one_slide(curr_adata, n_hops, layer, hex_geometry)
         
         # Join the current dictionary to the global dictionary
         graph_dict = {**graph_dict, **curr_graph_dict}
@@ -1282,9 +1299,36 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
     # Return the graph dict
     return graph_dict
 
-# TODO: Check documentation
-def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
+# TODO: Fix the internal fixme
+def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_t_log1p', n_hops: int = 2, backbone: str ='None', model_path: str = "best_stnet.pt", batch_size: int = 128, 
                           shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
+    """
+    This function performs all the pipeline to get graphs dataloaders for a dataset. It does the following steps:
+
+        1. Computes embeddings and predictions for the patches using the specified backbone and model.
+        2. Computes the graph dictionaries for the dataset using the embeddings and predictions.
+        3. Saves the graphs in the dataset_path folder.
+        4. Returns the train, validation and test dataloaders for the graphs.
+    
+    The function also checks if the graphs are already saved in the dataset_path folder. If they are, it loads them instead of recomputing them. In case 
+    the dataset has no test set, the test dataloader is set to None.
+
+    Args:
+        adata (ad.AnnData): The AnnData object to process.
+        dataset_path (str, optional): The path to the dataset (where the graphs will be stored). Defaults to ''.
+        layer (str, optional): Layer to predict. Defaults to 'c_t_log1p'.
+        n_hops (int, optional): Number of hops to compute the graph. Defaults to 2.
+        backbone (str, optional): Backbone model to use. Defaults to 'densenet'.
+        model_path (str, optional): Path to the model to use. Defaults to "None".
+        batch_size (int, optional): Batch size of the dataloaders. Defaults to 128.
+        shuffle (bool, optional): Whether to shuffle the data in the dataloaders. Defaults to True.
+        hex_geometry (bool, optional): Whether the graph is hexagonal or not. Defaults to True.
+        patch_size (int, optional): Size of the patches. Defaults to 224.
+        patch_scale (float, optional): Scale of the patches. Defaults to 1.0.
+
+    Returns:
+        Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]: _description_
+    """
     # Get dictionary of parameters to get the graphs
     curr_graph_params = {
         'n_hops': n_hops,
@@ -1324,6 +1368,7 @@ def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 
         # Print that we are computing the graphs
         print('Graphs not found in file, computing graphs...')
 
+        # FIXME: Again this should be in the processing part and not in the dataloader
         adata = add_noisy_layer(adata=adata, prediction_layer=layer)
 
         # We compute the embeddings and predictions for the patches
@@ -1331,7 +1376,7 @@ def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 
         compute_patches_embeddings_and_predictions(preds=False, backbone=backbone, model_path=model_path, patch_size=patch_size, patch_scale=patch_scale)
         
         # Get graph dicts
-        general_graph_dict = get_graphs(adata=adata, n_hops=n_hops, layer=layer, hex_geometry=hex_geometry, patch_scale=patch_scale)
+        general_graph_dict = get_graphs(adata=adata, n_hops=n_hops, layer=layer, hex_geometry=hex_geometry)
 
         # Get the train, validation and test indexes
         idx_train, idx_val, idx_test = adata.obs[adata.obs.split == 'train'].index, adata.obs[adata.obs.split == 'val'].index, adata.obs[adata.obs.split == 'test'].index
