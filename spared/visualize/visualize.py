@@ -17,6 +17,23 @@ import matplotlib.colors as colors
 from time import time
 from torchvision.transforms import Normalize
 import random
+from scipy.cluster import hierarchy
+import plotly.express as px
+import pathlib
+import sys
+
+#Path a spared
+SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
+
+#Agregar el directorio padre al sys.path para los imports
+sys.path.append(str(SPARED_PATH))
+#import im_encoder and metrics files
+from embeddings import im_encoder
+from metrics import metrics
+
+# Import visualization and processing function
+from visualize import visualize
+from processing import processing
 
 
 # Funciones separadas para visualización
@@ -116,7 +133,7 @@ def plot_all_slides(dataset: str, processed_adata: ad.AnnData, path: str) -> Non
         processed_adata (ad.AnnData): Processed and filtered data ready to use by the model.
         path (str): Path to save the plot.
     """
-
+    
     # Get unique slide ids
     unique_ids = sorted(processed_adata.obs['slide_id'].unique())
 
@@ -257,36 +274,6 @@ def plot_exp_frac(param_dict: dict, dataset: str, raw_adata: ad.AnnData, path: s
     # Return font scale to normal and matplotlib defaults to not mess the other figures
     sns.set_theme(font_scale=1.0)
     mpl.rcParams.update(mpl.rcParamsDefault)
-
-### Define function to get the expression fraction
-def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
-    This function computes the expression fraction for each gene in the dataset. Internally it gets the
-    expression fraction for each slide and then takes the minimum across all the slides.
-    """
-    # Get the unique slide ids
-    slide_ids = adata.obs['slide_id'].unique()
-
-    # Define zeros matrix of shape (n_genes, n_slides)
-    exp_frac = np.zeros((adata.n_vars, len(slide_ids)))
-
-    # Iterate over the slide ids
-    for i, slide_id in enumerate(slide_ids):
-        # Get current slide adata
-        slide_adata = adata[adata.obs['slide_id'] == slide_id, :]
-        # Get current slide expression fraction
-        curr_exp_frac = np.squeeze(np.asarray((slide_adata.X > 0).sum(axis=0) / slide_adata.n_obs))
-        # Add current slide expression fraction to the matrix
-        exp_frac[:, i] = curr_exp_frac
-    
-    # Compute the minimum expression fraction for each gene across all the slides
-    min_exp_frac = np.min(exp_frac, axis=1)
-
-    # Add the minimum expression fraction to the var dataframe of the slide collection
-    adata.var['exp_frac'] = min_exp_frac
-
-    # Return the adata
-    return adata
     
 def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: str) -> None:
     """
@@ -307,6 +294,7 @@ def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: st
         raw_adata (ad.AnnData): Loaded data from .h5ad file that is not filtered but has patch information.
         path (str): Path to save histogram plot.
     """
+
 
     # Compute qc metrics for raw and processed data in order to have total counts updated
     sc.pp.calculate_qc_metrics(raw_adata, inplace=True, log1p=False, percent_top=None)
@@ -385,6 +373,7 @@ def plot_random_patches(dataset: str, processed_adata: ad.AnnData, path: str, pa
         processed_adata (ad.AnnData): Processed and filtered data ready to use by the model.
         path (str): Path to save the image.
     """
+
     # Get the flat patches from the dataset
     flat_patches = processed_adata.obsm[f'patches_scale_{patch_scale}']
     # Reshape the patches for them to have image form
@@ -753,7 +742,7 @@ def plot_mean_std(dataset: str, processed_adata: ad.AnnData, raw_adata: ad.AnnDa
     plt.savefig(path, dpi=300)
     plt.close()
 
-def plot_data_distribution_stats(dataset: str, processed_adata: ad.AnnData, path:str):
+def plot_data_distribution_stats(dataset: str, processed_adata: ad.AnnData, path:str) -> None:
     """
     This function plots a pie chart and bar plots of the distribution of spots and slides in the dataset split.
 
@@ -822,6 +811,7 @@ def plot_mean_std_partitions(dataset: str, processed_adata: ad.AnnData, from_lay
         path (str): Path to save the image.
     """
     
+    
     # Copy processed adata to avoid problems
     aux_processed_adata = processed_adata.copy() 
 
@@ -841,7 +831,7 @@ def plot_mean_std_partitions(dataset: str, processed_adata: ad.AnnData, from_lay
     plt.savefig(path, dpi=300)
     plt.close()
 
-def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: dict, param_dict: dict, dataset_path: str, processed_adata: ad.AnnData, raw_adata: ad.AnnData)->None:
+def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: dict, param_dict: dict, folder_path: str, processed_adata: ad.AnnData, raw_adata: ad.AnnData)->None:
     """
     This function calls all the plotting functions in the class to create 6 quality control plots to check if the processing step of
     the dataset is performed correctly. The results are saved in dataset_logs folder and indexed by date and time. A dictionary
@@ -855,7 +845,7 @@ def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: d
     start = time()
 
     # Define directory path to save data
-    save_path = os.path.join(dataset_path, 'qc_plots')
+    save_path = os.path.join(folder_path, 'qc_plots')
     os.makedirs(save_path, exist_ok=True)
     # Define interest layers
     relevant_layers = ['log1p', 'd_log1p', 'c_d_log1p']
@@ -869,17 +859,16 @@ def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: d
     # Refine plotting slides string to assure they are in the dataset
     param_dict['plotting_slides'] = refine_plotting_slides_str(split_names, processed_adata, param_dict['plotting_slides'])
 
-
     # Plot partitions mean vs std scatter
     print('Started partitions mean vs std scatter plotting')
     os.makedirs(os.path.join(save_path, 'mean_vs_std_partitions'), exist_ok=True)
     for lay in tqdm(relevant_layers):
         plot_mean_std_partitions(dataset, processed_adata, from_layer=lay, path=os.path.join(save_path, 'mean_vs_std_partitions', f'{lay}.png'))
-
+ 
     # Plot all slides in collection
     print('Started all slides plotting')
     plot_all_slides(dataset, processed_adata, os.path.join(save_path, 'all_slides.png'))
-
+ 
     # Make plot of filtering histograms
     print('Started filtering histograms plotting')
     plot_histograms(processed_adata, raw_adata, os.path.join(save_path, 'filtering_histograms.png'))
@@ -929,5 +918,279 @@ def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: d
     end = time()
     print(f'Quality control plotting took {round(end-start, 2)}s')
     print(f'Images saved in {save_path}')
+#visualize.plot_tests(patch_scale=variables["patch_scale"], patch_size=variables["patch_size"], dataset=variables["dataset"], split_names=variables["split_names"], param_dict=variables["param_dict"], folder_path=folder_path, processed_adata=data.adata, raw_adata=data.raw_adata)
+
+#Visualizations for predictions
+def log_one_gene(adata, gene, slides, gt_layer, pred_layer, path):
+    
+    # Get dict of individual slides adatas
+    slides_adatas_dict = {p: processing.get_slide_from_collection(adata, slides[p]) for p in slides.keys()}
+
+    # Get min and max of the selected gene in the slides
+    gene_min_pred = min([dat[:, gene].layers[pred_layer].min() for dat in slides_adatas_dict.values()])
+    gene_max_pred = max([dat[:, gene].layers[pred_layer].max() for dat in slides_adatas_dict.values()])
+    
+    gene_min_gt = min([dat[:, gene].layers[gt_layer].min() for dat in slides_adatas_dict.values()])
+    gene_max_gt = max([dat[:, gene].layers[gt_layer].max() for dat in slides_adatas_dict.values()])
+    
+    gene_min = min([gene_min_pred, gene_min_gt])
+    gene_max = max([gene_max_pred, gene_max_gt])
+
+    # Define color normalization
+    norm = matplotlib.colors.Normalize(vmin=gene_min, vmax=gene_max)
+
+    # Declare figure
+    fig, ax = plt.subplots(nrows=len(slides), ncols=4, layout='constrained')
+    fig.set_size_inches(13, 3 * len(slides))
+
+    # Define order of rows in dict
+    order_dict = {'train': 0, 'val': 1, 'test': 2}
+
+    # Iterate over partitions
+    for p in slides.keys():
+        
+        # Get current row
+        row = order_dict[p]
+        
+        curr_img = slides_adatas_dict[p].uns['spatial'][slides[p]]['images']['lowres']
+        ax[row,0].imshow(curr_img)
+        ax[row,0].set_ylabel(f'{p}:\n{slides[p]}\nPCC-Gene={round(adata.var.loc[gene, f"pcc_{p}"],3)}', fontsize='large')
+        ax[row,0].set_xticks([])
+        ax[row,0].set_yticks([])
+
+        # Plot gt and pred of gene in the specified slides
+        sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=gt_layer, ax=ax[row,1], cmap='jet', norm=norm, colorbar=False, title='')
+        sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=pred_layer, ax=ax[row,2], cmap='jet', norm=norm, colorbar=False, title='')
+        sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=pred_layer, ax=ax[row,3], cmap='jet', colorbar=True, title='')
+        
+        # Set y labels
+        ax[row,1].set_ylabel('')
+        ax[row,2].set_ylabel('', fontsize='large')
+        ax[row,3].set_ylabel('')
 
 
+    # Format figure
+    for axis in ax.flatten():
+        axis.set_xlabel('')
+        # Turn off all spines
+        axis.spines['top'].set_visible(False)
+        axis.spines['right'].set_visible(False)
+        axis.spines['bottom'].set_visible(False)
+        axis.spines['left'].set_visible(False)
+
+    # Refine figure appereance
+    ax[0, 0].set_title(f'Original Image', fontsize='large')
+    ax[0, 1].set_title(f'Groundtruth\nFixed Scale', fontsize='large')
+    ax[0, 2].set_title(f'Prediction\nFixed Scale', fontsize='large')
+    ax[0, 3].set_title(f'Prediction\nVariable Scale', fontsize='large')
+
+    # Add fixed colorbar
+    fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap='jet'), ax=ax[:3, 2], location='right', fraction=0.05, aspect=25*len(slides)+5)
+
+    # Get ordering split
+    order_split = 'test' if 'test' in slides.keys() else 'val'
+    fig.suptitle(f'{gene}: PCC_{order_split}={round(adata.var.loc[gene, f"pcc_{order_split}"],3)}', fontsize=20)
+    # Save plot
+    #wandb.log({gene: fig})
+    fig.savefig(path)
+    plt.close()
+
+def log_pred_correlations(adata, gt_layer, pred_layer, path, top_k=50):
+
+    """This function logs the correlation matrices of the top k genes in the ground truth and predictions layers.
+
+    Args:
+        pred_layer (str): The name of the predictions layer.
+        top_k (int, optional): The number of top genes to log. Defaults to 50.
+    """
+    
+    # Get prediction and groundtruth layers from layers keys in the anndata
+    exp_pred = adata.layers[pred_layer]
+    exp_gt = adata.layers[gt_layer]
+
+    #take mean of expression
+    mean = np.mean(exp_gt, axis=1)
+    #find the indices of the top_k highest values
+    ind = np.argpartition(mean, -top_k)[-top_k:]
+
+    # Compute the correlation matrixes subsetting the top k genes
+    corr_matrix_gt = np.corrcoef(exp_gt[ind, :])
+    corr_matrix_pred = np.corrcoef(exp_pred[ind, :])
+
+    # Hierarchical clustering
+    dendrogram = hierarchy.dendrogram(hierarchy.linkage(corr_matrix_gt, method='ward'), no_plot=True)
+    # Get the cluster indexes
+    cluster_idx = dendrogram['leaves']
+
+    # Reaorder the correlation matrixes based on the clustering results
+    corr_matrix_pred = corr_matrix_pred[cluster_idx, :]
+    corr_matrix_pred = corr_matrix_pred[:, cluster_idx]
+    corr_matrix_gt = corr_matrix_gt[cluster_idx, :]
+    corr_matrix_gt = corr_matrix_gt[:, cluster_idx]
+
+    # Create subplots
+    fig, axes = plt.subplots(1, 2, layout='constrained')
+    fig.set_size_inches(10, 5)
+
+    # Calculate min and max for color normalization
+    vmin = min(corr_matrix_gt.min(), corr_matrix_pred.min())
+    vmax = max(corr_matrix_gt.max(), corr_matrix_pred.max())
+    
+    # Plot heatmap for predictions
+    sns.heatmap(corr_matrix_pred, ax=axes[0], xticklabels=False, cmap='viridis', yticklabels=False, cbar=False, vmin=vmin, vmax=vmax)
+    axes[0].set_title("Predictions")
+
+    # Plot heatmap for ground truth
+    sns.heatmap(corr_matrix_gt, ax=axes[1], xticklabels=False, cmap='viridis', yticklabels=False, cbar=True, vmin=vmin, vmax=vmax)
+    axes[1].set_title("Ground Truth")
+
+    # Save figure
+    #wandb.log({'correlations': wandb.Image(fig)})
+    fig.savefig(path)
+    plt.close()
+
+def log_mean_variance(adata, gt_layer, pred_layer, path):
+
+    # Get prediction and groundtruth layers from layers keys in the anndata
+    exp_pred = adata.layers[pred_layer]
+    exp_gt = adata.layers[gt_layer]
+
+    #take the mean expression for each gene 
+    mean_gt = np.mean(exp_gt, axis=0)
+    mean_pred = np.mean(exp_pred, axis=0)
+    #take the variance of expression for each gene 
+    var_gt = np.var(exp_gt, axis=0)
+    var_pred = np.var(exp_pred, axis=0)
+
+    #sort genes by mean expression
+    sorted_indexes = np.argsort(mean_gt)
+    mean_gt = mean_gt[sorted_indexes]
+    mean_pred = mean_pred[sorted_indexes]
+
+    #sort genes by variance
+    sorted_indexes = np.argsort(var_gt)
+    var_gt = var_gt[sorted_indexes]
+    var_pred = var_pred[sorted_indexes]
+
+    #Make plots
+
+    # Prepare data
+    genes = range(len(mean_pred))  
+    data_mean = pd.DataFrame({
+        'Genes': genes,
+        'Mean Expression Prediction': mean_pred,
+        'Mean Expression Ground Truth': mean_gt
+    })
+    data_variance = pd.DataFrame({
+        'Genes': genes,
+        'Variance Prediction': var_pred,
+        'Variance Ground Truth': var_gt
+    })
+
+    # Figure configurations
+    #sns.set_style("darkgrid")
+    sns.set_palette("tab10")
+    
+    # Crear la figura y los ejes
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+
+    # Mean subplot
+    sns.scatterplot(ax=ax1, data=data_mean.melt(id_vars='Genes', var_name='Condition', value_name='Mean Expression'),
+                    x='Genes', y='Mean Expression', hue='Condition', palette=['orange', 'blue'], s=10, alpha=0.5)
+    ax1.set_xlabel('Genes')
+    ax1.set_ylabel('Mean Expression')
+
+    # Variance subplot
+    sns.scatterplot(ax=ax2, data=data_variance.melt(id_vars='Genes', var_name='Condition', value_name='Variance'),
+                    x='Genes', y='Variance', hue='Condition', palette=['orange', 'blue'], s=10, alpha=0.5)
+    ax2.set_xlabel('Genes')
+    ax2.set_ylabel('Variance')
+
+    # Crear una leyenda personalizada con las etiquetas deseadas y colocarla en el gráfico
+    handles, labels = ax1.get_legend_handles_labels()
+    fig.legend(handles, ['Prediction', 'Ground Truth'], loc='upper center', ncol=2, frameon=False)
+
+    # Quitar spines
+    sns.despine()
+
+    # Hide individual legends
+    ax1.get_legend().remove()
+    ax2.get_legend().remove()
+
+    # Save figure
+    #wandb.log({'mean_variance': wandb.Image(fig)})
+    fig.savefig(path)
+    plt.close()
+
+def log_pred_image(adata, save_path, n_genes: int = 2, slides: dict = {}):
+    
+    ### 1. Get the selected genes
+
+    # Get prediction and groundtruth layers from layers keys in the anndata
+    pred_layer = [l for l in adata.layers.keys() if 'predictions' in l]
+    pred_layer = pred_layer[0] if pred_layer else None
+    gt_layer = [l.split(',')[1] for l in adata.layers.keys() if 'predictions' in l]
+    gt_layer = gt_layer[0] if gt_layer else None
+    # Handle delta prediction in normal scale
+    if 'deltas' in gt_layer:
+        gt_layer = gt_layer.replace('deltas', 'log1p')
+    # Be sure the prediction layer and gt layer is present in dataset
+    assert not (pred_layer is None), 'predictions layer not present in the adata'
+    assert not (gt_layer is None), 'groundtruth layer not present in the adata'
+
+    # Get partition names of current dataset
+    partitions = list(adata.obs.split.unique())
+    # Get dict of adatas separated by splits
+    adatas_dict = {p: adata[adata.obs.split == p, :] for p in partitions}
+
+    # Compute and ad detailed metrics for each split
+    for p, curr_adata in adatas_dict.items():
+
+        # Get detailed metrics from partition
+        detailed_metrics = metrics.get_metrics(
+            gt_mat = curr_adata.to_df(layer=gt_layer).values,
+            pred_mat = curr_adata.to_df(layer=pred_layer).values,
+            mask = curr_adata.to_df(layer='mask').values,
+            detailed=True
+        )
+
+        # Add detalied metrics to global adata
+        adata.var[f'pcc_{p}'] = detailed_metrics['detailed_PCC-Gene']
+        adata.var[f'r2_{p}'] = detailed_metrics['detailed_R2-Gene']
+        adata.var[f'mse_{p}'] = detailed_metrics['detailed_mse_gene']
+        adata.var[f'mae_{p}'] = detailed_metrics['detailed_mae_gene']
+        
+        # Define plotly plots
+        pcc_fig = px.histogram(adata.var, x=f'pcc_{p}', marginal='rug', hover_data=adata.var.columns, title=f'pcc_gene_{p}')
+        r2_fig = px.histogram(adata.var, x=f'r2_{p}', marginal='rug', hover_data=adata.var.columns, title=f'r2_gene_{p}')
+        mse_fig = px.histogram(adata.var, x=f'mse_{p}', marginal='rug', hover_data=adata.var.columns, title=f'mse_gene_{p}')
+        mae_fig = px.histogram(adata.var, x=f'mae_{p}', marginal='rug', hover_data=adata.var.columns, title=f'mae_gene_{p}')
+
+        # Save figures 
+        pcc_fig.savefig(os.path.join(save_path, f'pcc_gene_{p}'))
+        r2_fig.savefig(os.path.join(save_path, f'r2_gene_{p}'))
+        mse_fig.savefig(os.path.join(save_path, f'mse_gene_{p}'))
+        mae_fig.savefig(os.path.join(save_path, f'mae_gene_{p}'))
+        
+        # Log plotly plot to wandb
+        #wandb.log({f'pcc_gene_{p}': wandb.Plotly(pcc_fig)})
+        #wandb.log({f'r2_gene_{p}': wandb.Plotly(r2_fig)})
+        #wandb.log({f'mse_gene_{p}': wandb.Plotly(mse_fig)})
+        #wandb.log({f'mae_gene_{p}': wandb.Plotly(mae_fig)})            
+    
+    # Get ordering split
+    order_split = 'test' if 'test' in partitions else 'val'
+    # Get selected genes based on the best pcc
+    n_top = adata.var.nlargest(n_genes, columns=f'pcc_{order_split}').index.to_list()
+    n_botom = adata.var.nsmallest(n_genes, columns=f'pcc_{order_split}').index.to_list()
+    selected_genes = n_top + n_botom
+
+    ### 2. Get the selected slides. NOTE: Only first slide is always selected in case slides is not specified by parameter.
+    if slides == {}:
+        slides = {p: list(adatas_dict[p].obs.slide_id.unique())[0] for p in partitions}
+     
+    for gene in selected_genes:
+        log_one_gene(adata, gene, slides, gt_layer, pred_layer, os.path.join(save_path, f'{gene}_prediction.png'))
+    
+    log_pred_correlations(adata, gt_layer, pred_layer, os.path.join(save_path, 'correlation.png'))
+    log_mean_variance(adata, gt_layer, pred_layer, os.path.join(save_path, 'mean_variance.png'))

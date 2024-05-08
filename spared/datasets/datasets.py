@@ -163,9 +163,11 @@ class SpatialDataset():
         self.download_path = self.reader_class.download_path
         # Get the dataset path
         self.dataset_path = self.reader_class.dataset_path
+        
         # We load or compute the processed adata with patches.
-        self.adata = self.load_or_compute_adata()
+        self.adata, self.raw_adata = self.load_or_compute_adata()
 
+    #villacampa_lung_organoid
     def initialize_reader(self):
         """
         This function uses the parameters of the class to initialize the appropiate reader class
@@ -255,10 +257,9 @@ class SpatialDataset():
         
         return reader_class
     
-    # TODO: Test the complete processing pipeline against R implementation (GeoTcgaData package for TPM) (should we keep this todo?)
     # TODO: Update the docstring of this function (regarding process_dataset)
-        
-    def load_or_compute_adata(self) -> ad.AnnData:
+    #def load_or_compute_adata(self) -> ad.AnnData:   
+    def load_or_compute_adata(self) -> Tuple[ad.AnnData, ad.AnnData]:
         """
         This function does the main data pipeline. It will first check if the processed data exists in the dataset_path. If it does not exist,
         then it will compute it and save it. If it does exist, then it will load it and return it. If it is in the compute mode, then it will
@@ -273,6 +274,7 @@ class SpatialDataset():
             print('Computing main adata file from downloaded raw data...')
             collection_raw = self.reader_class.get_adata_collection()
             collection_filtered = processing.filter_dataset(adata=collection_raw, param_dict=self.param_dict)
+            # Process data
             collection_processed = processing.process_dataset(
                 dataset=self.dataset, adata=collection_filtered, param_dict=self.param_dict, hex_geometry=self.hex_geometry)
 
@@ -282,13 +284,12 @@ class SpatialDataset():
             collection_processed.write(os.path.join(self.dataset_path, f'adata.h5ad'))
 
             # QC plotting
-            #TODO: ¿Borrar la parte de visualización?
-            #visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+            visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
             # Copy figures folder into public database
             os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-            #if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-            #    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-            #shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+            if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+            shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
             
             # Create README for dataset
             if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
@@ -298,8 +299,8 @@ class SpatialDataset():
             # Load processed adata
             print(f'Loading main adata file from disk ({os.path.join(self.dataset_path, f"adata.h5ad")})...')
             # If the file already exists, load it
+            collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
             collection_processed = ad.read_h5ad(os.path.join(self.dataset_path, f'adata.h5ad'))
-            
 
             print('The loaded adata object looks like this:')
             print(collection_processed)
@@ -308,412 +309,26 @@ class SpatialDataset():
             force_plotting = False
             if force_plotting:
                 collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
-                #TODO: ¿Borrar la parte de visualización?
-                #visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
                 # Copy figures folder into public database
                 os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-                #if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                #    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-                #shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+                if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+                shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
                 
                 # Create README for dataset
                 if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
                     shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
 
-        return collection_processed
+        return collection_processed, collection_raw
     
-    # TODO: Chere where this is being used to update it into a processing function import
+    #TODO: Eliminar collection_raw del retorno y cambiar el parametro de retorno arriba en def ->
     # IMPORT FROM PROCESSING -> def compute_patches_embeddings_and_predictions(self, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True) -> None:
     # def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0)
-
-    # TODO: Check where is this being used and if we should keep it
-    def obtain_embeddings_resnet50(self):
-
-        def extract(encoder, patches):
-            return encoder(patches).view(-1,features)
-
-        egn_transforms = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        resnet_encoder = tmodels.resnet50(True)
-        features = resnet_encoder.fc.in_features
-        modules = list(resnet_encoder.children())[:-1] # Encoder corresponds to ResNet50 without the fc layer
-        resnet_encoder = torch.nn.Sequential(*modules)
-        for p in resnet_encoder.parameters():
-            p.requires_grad = False
-
-        resnet_encoder = resnet_encoder.to(device)
-        resnet_encoder.eval()
-
-        # Get the patches
-        flat_patches = self.adata.obsm[f'patches_scale_{self.patch_scale}']
-
-        # Reshape all the patches to the original shape
-        all_patches = flat_patches.reshape((-1, self.patch_size, self.patch_size, 3))
-        torch_patches = torch.from_numpy(all_patches).permute(0, 3, 1, 2).float()    # Turn all patches to torch
-        rescaled_patches = egn_transforms(torch_patches / 255)                       # Rescale patches to [0, 1]
-
-        img_embedding = [extract(resnet_encoder, single_patch.unsqueeze(dim=0).to(device)) for single_patch in tqdm(rescaled_patches)]
-        img_embedding = torch.cat(img_embedding).contiguous()             
-        
-        self.adata.obsm['resnet50_embeddings'] = img_embedding.cpu().numpy()
     
-    # TODO: Check where is this being used and if we should keep it
-    def get_nn_images(self) -> None:
-
-        def get_nn_dist_and_ids_images(query_adata: ad.AnnData, ref_adata: ad.AnnData) -> Tuple[pd.DataFrame, pd.DataFrame]:
-            
-            # Get embeddings from query and ref as torch tensors
-            query_embeddings = torch.Tensor(query_adata.obsm['resnet50_embeddings'])
-            ref_embeddings = torch.Tensor(ref_adata.obsm['resnet50_embeddings'])
-
-            # Compute euclidean distances from query to ref
-            query_ref_distances = torch.cdist(query_embeddings, ref_embeddings, p=2)
-
-            # Get the sorted distances and indexes
-            sorted_distances, sorted_indexes = torch.sort(query_ref_distances, dim=1)
-
-            # Trim the sorted distances and indexes to 100 nearest neighbors and convert to numpy
-            sorted_distances = sorted_distances[:, :100].numpy()
-            sorted_indexes = sorted_indexes[:, :100].numpy()
-
-            # Get index vector in numpy (just to avoid warnings)
-            index_vector = ref_adata.obs.index.values
-
-            # Get the ids of the 100 nearest neighbors
-            sorted_ids = index_vector[sorted_indexes]
-            
-            # Make a dataframe with the distances and ids with the query index as index
-            sorted_distances_df = pd.DataFrame(sorted_distances, index=query_adata.obs.index.values)
-            sorted_ids_df = pd.DataFrame(sorted_ids, index=query_adata.obs.index.values)
-
-            return sorted_distances_df, sorted_ids_df
-
-        print('Getting image nearest neighbors...')
-        start = time()
-
-        # Define train subset (this is where val and test will look for nearest neighbors)
-        train_subset = self.adata[self.adata.obs['split'] == 'train']
-        val_subset = self.adata[self.adata.obs['split'] == 'val']
-        test_subset = self.adata[self.adata.obs['split'] == 'test']
-        
-        # Use the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors
-        val_train_distances_df, val_train_ids_df = get_nn_dist_and_ids_images(val_subset, train_subset)
-        test_train_distances_df, test_train_ids_df = get_nn_dist_and_ids_images(test_subset, train_subset)
-
-        # Now get the patients of the train set
-        train_patients = train_subset.obs['patient'].unique()
-        
-        # Define list of dataframes to store the distances and ids from the train set to the train set
-        train_train_distances_dfs = []
-        train_train_ids_dfs = []
-
-        # Cycle through train patients
-        for patient in train_patients:
-
-            # Get the train patient data
-            patient_data = train_subset[train_subset.obs['patient'] == patient]
-            # Get the train patient data that is not for the current patient
-            other_patient_data = train_subset[train_subset.obs['patient'] != patient]
-
-            # Apply the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors
-            curr_patient_distances_df, curr_patient_ids_df = get_nn_dist_and_ids_images(patient_data, other_patient_data)
-            
-            # Append the dataframes to the list
-            train_train_distances_dfs.append(curr_patient_distances_df)
-            train_train_ids_dfs.append(curr_patient_ids_df)
-
-        # Concatenate the dataframes
-        train_train_distances_df = pd.concat(train_train_distances_dfs)
-        train_train_ids_df = pd.concat(train_train_ids_dfs)
-
-        # Concatenate train, val and test distances and ids
-        all_distances_df = pd.concat([train_train_distances_df, val_train_distances_df, test_train_distances_df])
-        all_ids_df = pd.concat([train_train_ids_df, val_train_ids_df, test_train_ids_df])
-
-        # Reindex the dataframes
-        all_distances_df = all_distances_df.reindex(self.adata.obs.index.values)
-        all_ids_df = all_ids_df.reindex(self.adata.obs.index.values)
-        
-        # Add the dataframes to the obsm
-        self.adata.obsm['image_nn_distances'] = all_distances_df
-        self.adata.obsm['image_nn_ids'] = all_ids_df
-
-        end = time()
-        print(f'Finished getting image nearest neighbors in {end - start:.2f} seconds')
-
     # IMPORT FROM PROCESSING -> def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, shuffle: bool = True) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
     # def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
                           # shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0)
-
-    # TODO: Check where is this being used and if we should keep it
-    def log_pred_image(self, n_genes: int = 2, slides: dict = {}):
-        
-        ### 1. Get the selected genes
-
-        # Get prediction and groundtruth layers from layers keys in the anndata
-        pred_layer = [l for l in self.adata.layers.keys() if 'predictions' in l]
-        pred_layer = pred_layer[0] if pred_layer else None
-        gt_layer = [l.split(',')[1] for l in self.adata.layers.keys() if 'predictions' in l]
-        gt_layer = gt_layer[0] if gt_layer else None
-        # Handle delta prediction in normal scale
-        if 'deltas' in gt_layer:
-            gt_layer = gt_layer.replace('deltas', 'log1p')
-        # Be sure the prediction layer and gt layer is present in dataset
-        assert not (pred_layer is None), 'predictions layer not present in the adata'
-        assert not (gt_layer is None), 'groundtruth layer not present in the adata'
-
-        # Get partition names of current dataset
-        partitions = list(self.adata.obs.split.unique())
-        # Get dict of adatas separated by splits
-        adatas_dict = {p: self.adata[self.adata.obs.split == p, :] for p in partitions}
-
-        # Compute and ad detailed metrics for each split
-        for p, curr_adata in adatas_dict.items():
-
-            # Get detailed metrics from partition
-            detailed_metrics = metrics.get_metrics(
-                gt_mat = curr_adata.to_df(layer=gt_layer).values,
-                pred_mat = curr_adata.to_df(layer=pred_layer).values,
-                mask = curr_adata.to_df(layer='mask').values,
-                detailed=True
-            )
-
-            # Add detalied metrics to global adata
-            self.adata.var[f'pcc_{p}'] = detailed_metrics['detailed_PCC-Gene']
-            self.adata.var[f'r2_{p}'] = detailed_metrics['detailed_R2-Gene']
-            self.adata.var[f'mse_{p}'] = detailed_metrics['detailed_mse_gene']
-            self.adata.var[f'mae_{p}'] = detailed_metrics['detailed_mae_gene']
-            
-            # Define plotly plots
-            pcc_fig = px.histogram(self.adata.var, x=f'pcc_{p}', marginal='rug', hover_data=self.adata.var.columns)
-            r2_fig = px.histogram(self.adata.var, x=f'r2_{p}', marginal='rug', hover_data=self.adata.var.columns)
-            mse_fig = px.histogram(self.adata.var, x=f'mse_{p}', marginal='rug', hover_data=self.adata.var.columns)
-            mae_fig = px.histogram(self.adata.var, x=f'mae_{p}', marginal='rug', hover_data=self.adata.var.columns)
-
-            # Log plotly plot to wandb
-            wandb.log({f'pcc_gene_{p}': wandb.Plotly(pcc_fig)})
-            wandb.log({f'r2_gene_{p}': wandb.Plotly(r2_fig)})
-            wandb.log({f'mse_gene_{p}': wandb.Plotly(mse_fig)})
-            wandb.log({f'mae_gene_{p}': wandb.Plotly(mae_fig)})            
-        
-        # Get ordering split
-        order_split = 'test' if 'test' in partitions else 'val'
-        # Get selected genes based on the best pcc
-        n_top = self.adata.var.nlargest(n_genes, columns=f'pcc_{order_split}').index.to_list()
-        n_botom = self.adata.var.nsmallest(n_genes, columns=f'pcc_{order_split}').index.to_list()
-        selected_genes = n_top + n_botom
-
-        ### 2. Get the selected slides. NOTE: Only first slide is always selected in case slides is not specified by parameter.
-        if slides == {}:
-            slides = {p: list(adatas_dict[p].obs.slide_id.unique())[0] for p in partitions}
-        
-        def log_one_gene(self, gene, slides, gt_layer, pred_layer):
-            
-            # Get dict of individual slides adatas
-            slides_adatas_dict = {p: processing.get_slide_from_collection(self.adata, slides[p]) for p in slides.keys()}
-
-            # Get min and max of the selected gene in the slides
-            gene_min_pred = min([dat[:, gene].layers[pred_layer].min() for dat in slides_adatas_dict.values()])
-            gene_max_pred = max([dat[:, gene].layers[pred_layer].max() for dat in slides_adatas_dict.values()])
-            
-            gene_min_gt = min([dat[:, gene].layers[gt_layer].min() for dat in slides_adatas_dict.values()])
-            gene_max_gt = max([dat[:, gene].layers[gt_layer].max() for dat in slides_adatas_dict.values()])
-            
-            gene_min = min([gene_min_pred, gene_min_gt])
-            gene_max = max([gene_max_pred, gene_max_gt])
-
-            # Define color normalization
-            norm = matplotlib.colors.Normalize(vmin=gene_min, vmax=gene_max)
-
-            # Declare figure
-            fig, ax = plt.subplots(nrows=len(slides), ncols=4, layout='constrained')
-            fig.set_size_inches(13, 3 * len(slides))
-
-            # Define order of rows in dict
-            order_dict = {'train': 0, 'val': 1, 'test': 2}
-
-            # Iterate over partitions
-            for p in slides.keys():
-                
-                # Get current row
-                row = order_dict[p]
-                
-                curr_img = slides_adatas_dict[p].uns['spatial'][slides[p]]['images']['lowres']
-                ax[row,0].imshow(curr_img)
-                ax[row,0].set_ylabel(f'{p}:\n{slides[p]}\nPCC-Gene={round(self.adata.var.loc[gene, f"pcc_{p}"],3)}', fontsize='large')
-                ax[row,0].set_xticks([])
-                ax[row,0].set_yticks([])
-
-                # Plot gt and pred of gene in the specified slides
-                sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=gt_layer, ax=ax[row,1], cmap='jet', norm=norm, colorbar=False, title='')
-                sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=pred_layer, ax=ax[row,2], cmap='jet', norm=norm, colorbar=False, title='')
-                sq.pl.spatial_scatter(slides_adatas_dict[p], color=[gene], layer=pred_layer, ax=ax[row,3], cmap='jet', colorbar=True, title='')
-                
-                # Set y labels
-                ax[row,1].set_ylabel('')
-                ax[row,2].set_ylabel('', fontsize='large')
-                ax[row,3].set_ylabel('')
-
-
-            # Format figure
-            for axis in ax.flatten():
-                axis.set_xlabel('')
-                # Turn off all spines
-                axis.spines['top'].set_visible(False)
-                axis.spines['right'].set_visible(False)
-                axis.spines['bottom'].set_visible(False)
-                axis.spines['left'].set_visible(False)
-
-            # Refine figure appereance
-            ax[0, 0].set_title(f'Original Image', fontsize='large')
-            ax[0, 1].set_title(f'Groundtruth\nFixed Scale', fontsize='large')
-            ax[0, 2].set_title(f'Prediction\nFixed Scale', fontsize='large')
-            ax[0, 3].set_title(f'Prediction\nVariable Scale', fontsize='large')
-
-            # Add fixed colorbar
-            fig.colorbar(matplotlib.cm.ScalarMappable(norm=norm, cmap='jet'), ax=ax[:3, 2], location='right', fraction=0.05, aspect=25*len(slides)+5)
-
-            # Get ordering split
-            order_split = 'test' if 'test' in slides.keys() else 'val'
-            fig.suptitle(f'{gene}: PCC_{order_split}={round(self.adata.var.loc[gene, f"pcc_{order_split}"],3)}', fontsize=20)
-            # Log plot 
-            wandb.log({gene: fig})
-            plt.close()
-
-        # FIXME: Wandb logging is not working
-        def log_pred_correlations(self, pred_layer, top_k=50):
-
-            """This function logs the correlation matrices of the top k genes in the ground truth and predictions layers.
-
-            Args:
-                pred_layer (str): The name of the predictions layer.
-                top_k (int, optional): The number of top genes to log. Defaults to 50.
-            """
-            
-            # Get prediction and groundtruth layers from layers keys in the anndata
-            exp_pred = self.adata.layers[pred_layer]
-            exp_gt = self.adata.layers[gt_layer]
-
-            #take mean of expression
-            mean = np.mean(exp_gt, axis=1)
-            #find the indices of the top_k highest values
-            ind = np.argpartition(mean, -top_k)[-top_k:]
-
-            # Compute the correlation matrixes subsetting the top k genes
-            corr_matrix_gt = np.corrcoef(exp_gt[ind, :])
-            corr_matrix_pred = np.corrcoef(exp_pred[ind, :])
-
-            # Hierarchical clustering
-            dendrogram = hierarchy.dendrogram(hierarchy.linkage(corr_matrix_gt, method='ward'), no_plot=True)
-            # Get the cluster indexes
-            cluster_idx = dendrogram['leaves']
-
-            # Reaorder the correlation matrixes based on the clustering results
-            corr_matrix_pred = corr_matrix_pred[cluster_idx, :]
-            corr_matrix_pred = corr_matrix_pred[:, cluster_idx]
-            corr_matrix_gt = corr_matrix_gt[cluster_idx, :]
-            corr_matrix_gt = corr_matrix_gt[:, cluster_idx]
-
-            # Create subplots
-            fig, axes = plt.subplots(1, 2, layout='constrained')
-            fig.set_size_inches(10, 5)
-
-            # Calculate min and max for color normalization
-            vmin = min(corr_matrix_gt.min(), corr_matrix_pred.min())
-            vmax = max(corr_matrix_gt.max(), corr_matrix_pred.max())
-            
-            # Plot heatmap for predictions
-            sns.heatmap(corr_matrix_pred, ax=axes[0], xticklabels=False, cmap='viridis', yticklabels=False, cbar=False, vmin=vmin, vmax=vmax)
-            axes[0].set_title("Predictions")
-
-            # Plot heatmap for ground truth
-            sns.heatmap(corr_matrix_gt, ax=axes[1], xticklabels=False, cmap='viridis', yticklabels=False, cbar=True, vmin=vmin, vmax=vmax)
-            axes[1].set_title("Ground Truth")
-
-            # Log plot
-            wandb.log({'correlations': wandb.Image(fig)})
-            plt.close()
-
-        #TODO: Mean and variance plot
-        def log_mean_variance(self, pred_layer):
-
-            # Get prediction and groundtruth layers from layers keys in the anndata
-            exp_pred = self.adata.layers[pred_layer]
-            exp_gt = self.adata.layers[gt_layer]
-
-            #take the mean expression for each gene 
-            mean_gt = np.mean(exp_gt, axis=0)
-            mean_pred = np.mean(exp_pred, axis=0)
-            #take the variance of expression for each gene 
-            var_gt = np.var(exp_gt, axis=0)
-            var_pred = np.var(exp_pred, axis=0)
-
-            #sort genes by mean expression
-            sorted_indexes = np.argsort(mean_gt)
-            mean_gt = mean_gt[sorted_indexes]
-            mean_pred = mean_pred[sorted_indexes]
-
-            #sort genes by variance
-            sorted_indexes = np.argsort(var_gt)
-            var_gt = var_gt[sorted_indexes]
-            var_pred = var_pred[sorted_indexes]
-
-            #Make plots
-
-            # Prepare data
-            genes = range(len(mean_pred))  
-            data_mean = pd.DataFrame({
-                'Genes': genes,
-                'Mean Expression Prediction': mean_pred,
-                'Mean Expression Ground Truth': mean_gt
-            })
-            data_variance = pd.DataFrame({
-                'Genes': genes,
-                'Variance Prediction': var_pred,
-                'Variance Ground Truth': var_gt
-            })
-
-            # Figure configurations
-            #sns.set_style("darkgrid")
-            sns.set_palette("tab10")
-            
-            # Crear la figura y los ejes
-            fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
-
-            # Mean subplot
-            sns.scatterplot(ax=ax1, data=data_mean.melt(id_vars='Genes', var_name='Condition', value_name='Mean Expression'),
-                            x='Genes', y='Mean Expression', hue='Condition', palette=['orange', 'blue'], s=10, alpha=0.5)
-            ax1.set_xlabel('Genes')
-            ax1.set_ylabel('Mean Expression')
-
-            # Variance subplot
-            sns.scatterplot(ax=ax2, data=data_variance.melt(id_vars='Genes', var_name='Condition', value_name='Variance'),
-                            x='Genes', y='Variance', hue='Condition', palette=['orange', 'blue'], s=10, alpha=0.5)
-            ax2.set_xlabel('Genes')
-            ax2.set_ylabel('Variance')
-
-            # Crear una leyenda personalizada con las etiquetas deseadas y colocarla en el gráfico
-            handles, labels = ax1.get_legend_handles_labels()
-            fig.legend(handles, ['Prediction', 'Ground Truth'], loc='upper center', ncol=2, frameon=False)
-
-            # Quitar spines
-            sns.despine()
-
-            # Hide individual legends
-            ax1.get_legend().remove()
-            ax2.get_legend().remove()
-
-            # Log plot
-            wandb.log({'mean_variance': wandb.Image(fig)})
-            plt.close()
-        
-        for gene in selected_genes:
-            log_one_gene(self, gene, slides, gt_layer, pred_layer)
-        
-        log_pred_correlations(self, pred_layer)
-        log_mean_variance(self, pred_layer)
-
 
 class HisToGeneDataset(Dataset):
     def __init__(self, adata, set_str):
@@ -788,7 +403,7 @@ def get_dataset(dataset_name: str) -> SpatialDataset:
 
     # Refine config dict into a param dict
     [config_dict.pop(k) for k in ['patch_scale', 'patch_size', 'force_compute', 'dataset', 'n_hops', 'prediction_layer']]
-
+ 
     # Declare the spatial dataset
     dataset = SpatialDataset(
         dataset=dataset_name, 
@@ -799,7 +414,8 @@ def get_dataset(dataset_name: str) -> SpatialDataset:
     )
 
     return dataset
-   
+
+#TODO: parametro de visualización (True y False)   
 
 # Test code only for debugging
 if __name__ == "__main__":
