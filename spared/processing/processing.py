@@ -29,6 +29,7 @@ from torch_geometric.utils import from_scipy_sparse_matrix
 from typing import Tuple
 import sys
 from typing import Tuple
+from torchvision import transforms 
 #Get the path of the spared database
 #SPARED_PATH = pathlib.Path(__file__).parent
 
@@ -1362,3 +1363,119 @@ def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 
     test_dataloader = geo_DataLoader(test_graphs, batch_size=batch_size, shuffle=shuffle) if test_graphs is not None else None
 
     return train_dataloader, val_dataloader, test_dataloader
+
+# Get the nearest neighbors dist and ids and add this information in the adata
+def get_nn_images(adata) -> None:
+    
+    def get_nn_dist_and_ids_images(query_adata: ad.AnnData, ref_adata: ad.AnnData) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        
+        # Get embeddings from query and ref as torch tensors
+        query_embeddings = torch.Tensor(query_adata.obsm['resnet50_embeddings'])
+        ref_embeddings = torch.Tensor(ref_adata.obsm['resnet50_embeddings'])
+
+        # Compute euclidean distances from query to ref
+        query_ref_distances = torch.cdist(query_embeddings, ref_embeddings, p=2)
+
+        # Get the sorted distances and indexes
+        sorted_distances, sorted_indexes = torch.sort(query_ref_distances, dim=1)
+
+        # Trim the sorted distances and indexes to 100 nearest neighbors and convert to numpy
+        sorted_distances = sorted_distances[:, :100].numpy()
+        sorted_indexes = sorted_indexes[:, :100].numpy()
+
+        # Get index vector in numpy (just to avoid warnings)
+        index_vector = ref_adata.obs.index.values
+
+        # Get the ids of the 100 nearest neighbors
+        sorted_ids = index_vector[sorted_indexes]
+        
+        # Make a dataframe with the distances and ids with the query index as index
+        sorted_distances_df = pd.DataFrame(sorted_distances, index=query_adata.obs.index.values)
+        sorted_ids_df = pd.DataFrame(sorted_ids, index=query_adata.obs.index.values)
+
+        return sorted_distances_df, sorted_ids_df
+
+    print('Getting image nearest neighbors...')
+    start = time()
+
+    # Define train subset (this is where val and test will look for nearest neighbors)
+    train_subset = adata[adata.obs['split'] == 'train']
+    val_subset = adata[adata.obs['split'] == 'val']
+    test_subset = adata[adata.obs['split'] == 'test']
+    
+    # Use the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors
+    val_train_distances_df, val_train_ids_df = get_nn_dist_and_ids_images(val_subset, train_subset)
+    test_train_distances_df, test_train_ids_df = get_nn_dist_and_ids_images(test_subset, train_subset)
+
+    # Now get the patients of the train set
+    train_patients = train_subset.obs['patient'].unique()
+    
+    # Define list of dataframes to store the distances and ids from the train set to the train set
+    train_train_distances_dfs = []
+    train_train_ids_dfs = []
+
+    # Cycle through train patients
+    for patient in train_patients:
+
+        # Get the train patient data
+        patient_data = train_subset[train_subset.obs['patient'] == patient]
+        # Get the train patient data that is not for the current patient
+        other_patient_data = train_subset[train_subset.obs['patient'] != patient]
+
+        # Apply the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors
+        curr_patient_distances_df, curr_patient_ids_df = get_nn_dist_and_ids_images(patient_data, other_patient_data)
+        
+        # Append the dataframes to the list
+        train_train_distances_dfs.append(curr_patient_distances_df)
+        train_train_ids_dfs.append(curr_patient_ids_df)
+
+    # Concatenate the dataframes
+    train_train_distances_df = pd.concat(train_train_distances_dfs)
+    train_train_ids_df = pd.concat(train_train_ids_dfs)
+
+    # Concatenate train, val and test distances and ids
+    all_distances_df = pd.concat([train_train_distances_df, val_train_distances_df, test_train_distances_df])
+    all_ids_df = pd.concat([train_train_ids_df, val_train_ids_df, test_train_ids_df])
+
+    # Reindex the dataframes
+    all_distances_df = all_distances_df.reindex(adata.obs.index.values)
+    all_ids_df = all_ids_df.reindex(adata.obs.index.values)
+    
+    # Add the dataframes to the obsm
+    adata.obsm['image_nn_distances'] = all_distances_df
+    adata.obsm['image_nn_ids'] = all_ids_df
+
+    end = time()
+    print(f'Finished getting image nearest neighbors in {end - start:.2f} seconds')
+
+# Obtain ResNet50 embedding and add this information in the adata
+def obtain_embeddings_resnet50(adata, patch_scale: float = 1.0, patch_size: int = 224):
+
+    def extract(encoder, patches):
+        return encoder(patches).view(-1,features)
+
+    egn_transforms = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    resnet_encoder = tmodels.resnet50(True)
+    features = resnet_encoder.fc.in_features
+    modules = list(resnet_encoder.children())[:-1] # Encoder corresponds to ResNet50 without the fc layer
+    resnet_encoder = torch.nn.Sequential(*modules)
+    for p in resnet_encoder.parameters():
+        p.requires_grad = False
+
+    resnet_encoder = resnet_encoder.to(device)
+    resnet_encoder.eval()
+
+    # Get the patches
+    flat_patches = adata.obsm[f'patches_scale_{patch_scale}']
+
+    # Reshape all the patches to the original shape
+    all_patches = flat_patches.reshape((-1, patch_size, patch_size, 3))
+    torch_patches = torch.from_numpy(all_patches).permute(0, 3, 1, 2).float()    # Turn all patches to torch
+    rescaled_patches = egn_transforms(torch_patches / 255)                       # Rescale patches to [0, 1]
+
+    img_embedding = [extract(resnet_encoder, single_patch.unsqueeze(dim=0).to(device)) for single_patch in tqdm(rescaled_patches)]
+    img_embedding = torch.cat(img_embedding).contiguous()             
+    
+    adata.obsm['resnet50_embeddings'] = img_embedding.cpu().numpy()
