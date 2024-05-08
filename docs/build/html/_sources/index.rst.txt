@@ -8,8 +8,6 @@ Welcome to SpaRED's documentation!
 
 **SpaRED** (**Spa**\cially **R**\esolved **E**\xpression **D**\atabase) is a Python library that hosts both a collection of spatial transcriptomics datasets and a set of tools to analyze them and build new ones.
 
-Check out the :doc:`usage` section for further information, including how to :ref:`install <installation>` the project.
-
 .. note::
 
    This project is under active development.
@@ -26,6 +24,9 @@ Contents
 --------
 
 .. toctree::
+    :caption: General
+    :maxdepth: 2
+    :hidden:
 
-   usage
-   processing
+    installation
+    api

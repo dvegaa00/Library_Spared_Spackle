@@ -48,7 +48,8 @@ sys.path.remove(str(SPARED_PATH))
 ### Data analysis and filtering functions: 
 
 def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData:
-    """
+    """ Retrieve a slide from a collection of slides.
+
     This function receives a slide name and returns an adata object of the specified slide based on the collection of slides
     in the collection parameter.
 
@@ -69,7 +70,8 @@ def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData
     return slide_adata
 
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
+    """ Compute the expression fraction for each gene in the dataset.
+
     This function computes the expression fraction for each gene in the dataset. Internally it gets the
     expression fraction for each slide and then takes the minimum across all the slides.
 
@@ -104,7 +106,8 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
+    """ Compute the global expression fraction for each gene in the dataset.
+
     This function computes the global expression fraction for each gene in the dataset. Internally it computes the fraction of non-zero
     observations for each gene across all the slides in the collection.
 
@@ -124,7 +127,8 @@ def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
-    """
+    """ Perform complete filtering pipeline of a slide collection.
+
     This function takes a completely unfiltered and unprocessed (in raw counts) slide collection and filters it
     (both samples and genes) according to the param_dict argument. A summary list of the steps is the following:
 

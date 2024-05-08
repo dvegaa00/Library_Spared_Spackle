@@ -14,6 +14,7 @@ import pathlib
 import os
 import sys
 sys.path.insert(0, pathlib.Path(__file__).parents[2].resolve().as_posix())
+import spared
 
 
 # -- Project information -----------------------------------------------------
@@ -38,6 +39,8 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
     'sphinx.ext.napoleon',
+    "sphinx.ext.viewcode",
+    "sphinx.ext.mathjax",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
