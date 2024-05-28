@@ -848,7 +848,7 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 # FIXME: Maybe the organism should be a key of the param_dict (DONE)
 # FIXME: Hex geometry should also be inside the param_dict (How do I define this for every dataset?) --> True siempre
 # TODO: Fix documentation when the above fixmes are solved.
-def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
+def process_dataset(adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
     """ Perform complete processing pipeline.
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
     (adata.X). The processing pipeline is the following:
