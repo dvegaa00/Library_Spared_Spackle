@@ -396,32 +396,14 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
     # Return the transformed AnnData object
     return adata
 
-def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
-    """Remove noise with median filter.
-
-    Function that cleans noise (missing data) with a modified adaptive median filter for each slide in an AnnData collection.
-    Details of the adaptive median filter can be found in the ``adaptive_median_filter_pepper()`` function inside the source code.
-    The data will be taken from ``adata.layers[from_layer]`` and the results will be stored in ``adata.layers[to_layer]``.
-
-    Args:
-        collection (ad.AnnData): The AnnData collection to process.
-        from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
-        to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
-        n_hops (int): The maximum number of concentric rings in the neighbors graph to take into account to compute the median. Analogous to the maximum window size.
-        hex_geometry (bool): ``True``, if the graph has hexagonal spatial geometry (Visium technology). If False, then the graph is a grid.
-
-    Returns:
-        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer ``adata.layers[to_layer]``.
+# FIXME: This function can be used alone. Think of getting it outside.
+### Define function to get spatial neighbors in an AnnData object
+def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
     """
-    
-    # FIXME: This function can be used alone. Think of getting it outside.
-    ### Define function to get spatial neighbors in an AnnData object
-    def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
-        """
-        This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
-        a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
-        and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-        inside an n_hops neighborhood (vicinity) of the observation.
+    This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
+    a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
+    and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
+    inside an n_hops neighborhood (vicinity) of the observation.
 
     Args:
         adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
@@ -468,7 +450,7 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
         non_zero_elements = output_matrix[i].nonzero()[1]
         # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
         neighbors_dict_index[i] = [i] + list(non_zero_elements)
-    
+
     # Return the neighbors dict
     return neighbors_dict_index
 
@@ -957,9 +939,9 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 
 ### Patch processing function:
 
-# FIXME: keep patch_scale as parameter? nop
-# assert: que exista la escala
-# assert solo una llave que corresponda a patch_scale 
+# FIXME: keep patch_scale as parameter? NOP
+# TODO: assert: que exista la escala
+# TODO: assert solo una llave que corresponda a patch_scale 
 # TODO: Fix documentation when the above fixme is solved. (DONE)
 def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", preds: bool=True, patch_size: int = 224) -> None:
     """ Compute embeddings or predictions for patches.
@@ -1059,7 +1041,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
     preprocess = weights.transforms(antialias=True)
 
     # Get the patches
-    # patch_scale = 1.0
+    patch_scale = 1.0
     flat_patches = adata.obsm[f'patches_scale_{patch_scale}']
 
     # Reshape all the patches to the original shape
