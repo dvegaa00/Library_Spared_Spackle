@@ -258,17 +258,17 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 ### Expression data processing functions:
 
 # FIXME: Put the organism as a parameter instead of in the name of the dataset
-def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
+def tpm_normalization(organism: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """Normalize expression using TPM normalization.
 
     This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the ``.gtf`` annotation file.
     The counts are taken from ``adata.layers[from_layer]`` and the results are stored in ``adata.layers[to_layer]``. It can perform the normalization
     for `human <https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz>`_ and `mouse
     <https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz>`_ reference genomes.
-    To specify which GTF annotation file should be used, the string parameter ``'dataset'`` must contain the substring ``'mouse'`` or ``'human'``.
+    To specify which GTF annotation file should be used, the string parameter ``'organism'`` must be ``'mouse'`` or ``'human'``.
 
     Args:
-        dataset (str): The dataset name. Must contain the substring ``'mouse'`` or ``'human'`` to specify the reference genome.
+        organism (str): Organism of the dataset. Must be 'mouse' or 'human'.
         adata (ad.Anndata): The Anndata object to normalize.
         from_layer (str): The layer to take the counts from. The data in this layer should be in raw counts.
         to_layer (str): The layer to store the results of the normalization.
@@ -396,10 +396,11 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
     # Return the transformed AnnData object
     return adata
 
-# FIXME: This function can be used alone. Think of getting it outside.
+# FIXME: CHeck this is adequately included in documentation
 ### Define function to get spatial neighbors in an AnnData object
 def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
-    """
+    """ Compute neighbors dictionary for an AnnData object.
+    
     This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
     a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
     and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
@@ -455,19 +456,21 @@ def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) ->
     return neighbors_dict_index
 
 def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
-    """
-    Function that cleans noise with a modified adaptive median filter for each slide in an anndata collection and then concatenates the results
-    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper() function.
+    """Remove noise with median filter.
+
+    Function that cleans noise (missing data) with a modified adaptive median filter for each slide in an AnnData collection.
+    Details of the adaptive median filter can be found in the ``adaptive_median_filter_pepper()`` function inside the source code.
+    The data will be taken from ``adata.layers[from_layer]`` and the results will be stored in ``adata.layers[to_layer]``.
 
     Args:
-        collection (ad.AnnData): The AnnData collection to process. Contains all the slides.
+        collection (ad.AnnData): The AnnData collection to process.
         from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
         to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
-        n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.
+        n_hops (int): The maximum number of concentric rings in the neighbors graph to take into account to compute the median. Analogous to the maximum window size.
+        hex_geometry (bool): ``True``, if the graph has hexagonal spatial geometry (Visium technology). If False, then the graph is a grid.
 
     Returns:
-        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
+        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer ``adata.layers[to_layer]``.
     """
 
     ### Define cleaning function for single slide:
@@ -945,6 +948,7 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 # TODO: Fix documentation when the above fixme is solved. (DONE)
 def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", preds: bool=True, patch_size: int = 224) -> None:
     """ Compute embeddings or predictions for patches.
+
     This function computes embeddings or predictions for a given backbone model and adata object. It can optionally
     compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are
     stored in adata.obsm[f'embeddings_{backbone}'] or adata.obsm[f'predictions_{backbone}'] respectively. The patches
