@@ -10,6 +10,8 @@ from .processing import tpm_normalization
 #spared.processing.tpm_normalization
 from .processing import log1p_transformation
 #spared.processing.log1p_transformation
+from .processing import get_spatial_neighbors
+#spared.processing.get_spatial_neighbors
 from .processing import clean_noise
 #spared.processing.clean_noise
 from .processing import combat_transformation

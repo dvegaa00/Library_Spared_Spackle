@@ -30,18 +30,18 @@ from typing import Tuple
 import sys
 from typing import Tuple
 
-# FIXME: Remove comments in spanish
+#FIXME: Remove comments in spanish
 
 from torchvision import transforms 
-#Get the path of the spared database
-#SPARED_PATH = pathlib.Path(__file__).parent
+# Get the path of the spared database
+# SPARED_PATH = pathlib.Path(__file__).parent
 
-#El path a spared es ahora diferente
+# El path a spared es ahora diferente
 SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 
-#Agregar el directorio padre al sys.path para los imports
+# Agregar el directorio padre al sys.path para los imports
 sys.path.append(str(SPARED_PATH))
-#Import im_encoder.py file
+# Import im_encoder.py file
 from embeddings import im_encoder
 # Remove the path from sys.path
 sys.path.remove(str(SPARED_PATH))
@@ -248,8 +248,8 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 
 ### Expression data processing functions:
 
-# FIXME: Put the organism as a parameter instead of in the name of the dataset
-def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
+# FIXME: Put the organism as a parameter instead of in the name of the dataset (DONE)
+def tpm_normalization(organism: str, adata: ad.AnnData, from_layer: str, to_layer: str) -> ad.AnnData:
     """
     This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the gtf annotation file.
     The counts of the anndata are taken from the layer 'from_layer' and the results are stored in the layer 'to_layer'. It can perform the normalization
@@ -258,7 +258,7 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
     file should be used, the string parameter 'dataset' must contain the substring 'mouse' or 'human'.
 
     Args:
-        dataset (str): The dataset name. Must contain the substring 'mouse' or 'human' to specify the reference genome.
+        organism (str): Organism of the dataset. Must be 'mouse' or 'human'.
         adata (ad.Anndata): The Anndata object to normalize.
         from_layer (str): The layer to take the counts from.
         to_layer (str): The layer to store the results of the normalization.
@@ -269,9 +269,9 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
     # Get the number of genes before filtering
     initial_genes = adata.shape[1]
 
-    # Automatically download the gtf annotation file if it is not already downloaded
+    # Automatically download the human gtf annotation file if it is not already downloaded
     if not os.path.exists(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.v43.basic.annotation.gtf.gz')):
-        print('Automatically downloading gtf annotation file...')
+        print('Automatically downloading human gtf annotation file...')
         os.makedirs(os.path.join(SPARED_PATH, 'data', 'annotations'), exist_ok=True)
         wget.download(
             'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz',
@@ -286,7 +286,15 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
             with open(gtf_path, 'wb') as f_out:
                 shutil.copyfileobj(f_in, f_out)
 
-    # FIXME: Set up automatic download of mouse gtf file
+    # FIXME: Set up automatic download of mouse gtf file (DONE)
+    # Automatically download the mouse gtf annotation file if it is not already downloaded
+    if not os.path.exists(os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf.gz')):
+        print('Automatically downloading mouse gtf annotation file...')
+        os.makedirs(os.path.join(SPARED_PATH, 'data', 'annotations'), exist_ok=True)
+        wget.download(
+            'https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz',
+            out = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf.gz'))
+    
     # Define gtf mouse path
     gtf_path_mouse = os.path.join(SPARED_PATH, 'data', 'annotations', 'gencode.vM33.basic.annotation.gtf')
 
@@ -310,10 +318,12 @@ def tpm_normalization(dataset: str, adata: ad.AnnData, from_layer: str, to_layer
         subprocess.call(command_list) 
 
     # Upload the gene lengths
-    if "mouse" in dataset.lower():
+    if organism.lower() == "mouse":
         glength_df = pd.read_csv(gene_length_path_mouse, delimiter='\t', usecols=['gene', 'merged'])
-    else:
+    elif organism.lower() == "human":
         glength_df = pd.read_csv(gene_length_path, delimiter='\t', usecols=['gene', 'merged'])
+    else:
+        assert "Organism not valid"
 
     # For the gene column, remove the version number
     glength_df['gene'] = glength_df['gene'].str.split('.').str[0]
@@ -375,6 +385,64 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
     # Return the transformed AnnData object
     return adata
 
+# FIXME: This function can be used alone. Think of getting it outside. (DONE)
+### Define function to get spatial neighbors in an AnnData object
+def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
+    """
+    This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
+    a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
+    and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
+    inside an n_hops neighborhood (vicinity) of the observation.
+
+    Args:
+        adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
+        n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
+                                true for visium datasets.
+
+    Returns:
+        dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
+    """
+
+    # Compute spatial_neighbors
+    if hex_geometry:
+        sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
+    else:
+        sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid dataset case
+
+    # Get the adjacency matrix
+    adj_matrix = adata.obsp['spatial_connectivities']
+
+    # Define power matrix
+    power_matrix = adj_matrix.copy()
+    # Define the output matrix
+    output_matrix = adj_matrix.copy()
+
+    # Iterate through the hops
+    for i in range(n_hops-1):
+        # Compute the next hop
+        power_matrix = power_matrix * adj_matrix
+        # Add the next hop to the output matrix
+        output_matrix = output_matrix + power_matrix
+
+    # Zero out the diagonal
+    output_matrix.setdiag(0)
+    # Threshold the matrix to 0 and 1
+    output_matrix = output_matrix.astype(bool).astype(int)
+
+    # Define neighbors dict
+    neighbors_dict_index = {}
+
+    # Iterate through the rows of the output matrix
+    for i in range(output_matrix.shape[0]):
+        # Get the non-zero elements of the row
+        non_zero_elements = output_matrix[i].nonzero()[1]
+        # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
+        neighbors_dict_index[i] = [i] + list(non_zero_elements)
+    
+    # Return the neighbors dict
+    return neighbors_dict_index
+
 def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
     """
     Function that cleans noise with a modified adaptive median filter for each slide in an anndata collection and then concatenates the results
@@ -390,64 +458,6 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
     Returns:
         ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer 'to_layer'.
     """
-    
-    # FIXME: This function can be used alone. Think of getting it outside.
-    ### Define function to get spatial neighbors in an AnnData object
-    def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
-        """
-        This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
-        a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
-        and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-        inside an n_hops neighborhood (vicinity) of the observation.
-
-        Args:
-            adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
-            n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
-            hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                 true for visium datasets.
-
-        Returns:
-            dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
-        """
-
-        # Compute spatial_neighbors
-        if hex_geometry:
-            sq.gr.spatial_neighbors(adata, coord_type='generic', n_neighs=6) # Hexagonal visium case
-        else:
-            sq.gr.spatial_neighbors(adata, coord_type='grid', n_neighs=8) # Grid dataset case
-
-        # Get the adjacency matrix
-        adj_matrix = adata.obsp['spatial_connectivities']
-
-        # Define power matrix
-        power_matrix = adj_matrix.copy()
-        # Define the output matrix
-        output_matrix = adj_matrix.copy()
-
-        # Iterate through the hops
-        for i in range(n_hops-1):
-            # Compute the next hop
-            power_matrix = power_matrix * adj_matrix
-            # Add the next hop to the output matrix
-            output_matrix = output_matrix + power_matrix
-
-        # Zero out the diagonal
-        output_matrix.setdiag(0)
-        # Threshold the matrix to 0 and 1
-        output_matrix = output_matrix.astype(bool).astype(int)
-
-        # Define neighbors dict
-        neighbors_dict_index = {}
-
-        # Iterate through the rows of the output matrix
-        for i in range(output_matrix.shape[0]):
-            # Get the non-zero elements of the row
-            non_zero_elements = output_matrix[i].nonzero()[1]
-            # Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs
-            neighbors_dict_index[i] = [i] + list(non_zero_elements)
-        
-        # Return the neighbors dict
-        return neighbors_dict_index
 
     ### Define cleaning function for single slide:
     def adaptive_median_filter_pepper(adata: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
@@ -712,7 +722,7 @@ def compute_moran(adata: ad.AnnData, from_layer: str, hex_geometry: bool) -> ad.
     # Return the updated AnnData object
     return adata
 
-# TODO: Fix documentation when the internal fixme is solved
+# TODO: Fix documentation when the internal fixme is solved (VERIFICATION REQUIRED)
 def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
     """
     This function filters the genes in adata.var by the Moran's I statistic. It keeps the n_keep genes with the highest Moran's I.
@@ -732,14 +742,18 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Assert that the number of genes is at least n_keep
     assert adata.n_vars >= n_keep, f'The number of genes in the AnnData object is {adata.n_vars}, which is less than n_keep ({n_keep}).'
 
-    # FIXME: This part is wierd, we can define a simple threshold without all the computation
-    # Select amount of top genes depending on the available amount if n_keep is not specified
+    # FIXME: This part is weird, we can define a simple threshold without all the computation
+    # Select amount of top genes depending on the available amount if n_keep is not specified (Verify: n_keep would be equal to n_vars?)
+    # threshold: (calcular el threshold segun np.abs(n_keep - 128) > np.abs(n_keep - 32)) --> 320
     if n_keep <= 0:
+        n_keep = adata.n_vars
+        """
         n_keep = round(adata.n_vars * 0.25, 0)
         if np.abs(n_keep - 128) > np.abs(n_keep - 32):
             n_keep = 32
         else:
             n_keep = 128
+        """
 
     print(f"Filtering genes by Moran's I. Keeping top {n_keep} genes.")
     
@@ -755,8 +769,9 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Return the updated AnnData object
     return adata
 
-
-# TODO: Fix documentation when the internal fixme is solved. Another option is to put this function inside the initial preprocessing.
+# TODO: Fix documentation when the internal fixme is solved. (NOT NECESARRY) 
+# Another option is to put this function inside the initial preprocessing.
+# TODO: When cheking this function on its own, try using a prediction layer "delta"
 def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
     """
     This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of 'noisy_d'
@@ -773,22 +788,23 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
         ad.AnnData: The updated AnnData object with the noisy layer added.
     """
     if 'delta' in prediction_layer or 'noisy_d' in prediction_layer:
-    # FIXME: make it flexible for other prediction layers different to c_d_log1p
+    # FIXME: make it flexible for other prediction layers different to c_d_log1p (DONE)
         # Get vector with gene means
-        gene_means = adata.var['c_d_log1p_avg_exp'].values 
+        gene_means = adata.var[f"{prediction_layer}_avg_exp"].values 
         # Expand gene means to the shape of the layer
         gene_means = np.repeat(gene_means.reshape(1, -1), adata.n_obs, axis=0)
         # Get valid mask
         valid_mask = adata.layers['mask']
         # Initialize noisy deltas
         noisy_deltas = -gene_means 
+        delta_key = prediction_layer.split("log1p")
         # Assign delta values in positions where valid mask is true
-        noisy_deltas[valid_mask] = adata.layers['c_d_deltas'][valid_mask]
+        noisy_deltas[valid_mask] = adata.layers[f'{delta_key[0]}deltas'][valid_mask]
         # Add the layer to the adata
         adata.layers['noisy_d'] = noisy_deltas
 
         # Add a var column of used means of the layer
-        mean_key = f'c_d_log1p_avg_exp'
+        mean_key = f'{prediction_layer}_avg_exp'
         adata.var['used_mean'] = adata.var[mean_key]
 
     else:
@@ -807,11 +823,11 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
     return adata
 
 # FIXME: hex_geometry default set to True (?). Check if this is needed.
-# FIXME: Shouldn't dataset be inside the param_dict and not a parameter
-# FIXME: Maybe the organism should be a key of the param_dict
-# FIXME: Hex geometry should also be inside the param_dict
+# FIXME: Shouldn't dataset be inside the param_dict and not a parameter (DONE)
+# FIXME: Maybe the organism should be a key of the param_dict (DONE)
+# FIXME: Hex geometry should also be inside the param_dict (How do I define this for every dataset?) --> True siempre
 # TODO: Fix documentation when the above fixmes are solved.
-def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
+def process_dataset(adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
     """
     This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
     (adata.X). The processing pipeline is the following:
@@ -826,7 +842,6 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
         8. Add a binary mask layer specifying valid observations for metric computation (mask layer, True for valid observations, False for missing values).
 
     Args:
-        dataset (str): The dataset name. Must contain the substring 'mouse' or 'human' to specify the reference genome for TPM normalization.
         adata (ad.AnnData): The AnnData object to process. Should be already filtered with the filter_dataset() function.
         param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:
 
@@ -863,7 +878,7 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     adata.layers['counts'] = adata.X.toarray()
     
     # 1. Make TPM normalization
-    adata = tpm_normalization(dataset, adata, from_layer='counts', to_layer='tpm')
+    adata = tpm_normalization(param_dict["organism"], adata, from_layer='counts', to_layer='tpm')
 
     # 2. Transform the data with log1p (base 2.0)
     adata = log1p_transformation(adata, from_layer='tpm', to_layer='log1p')
@@ -885,12 +900,14 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
     # 7. Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p
     adata = get_deltas(adata, from_layer='log1p', to_layer='deltas')
     adata = get_deltas(adata, from_layer='d_log1p', to_layer='d_deltas')
+    
     if param_dict['combat_key'] != 'None':
         adata = get_deltas(adata, from_layer='c_log1p', to_layer='c_deltas')
         adata = get_deltas(adata, from_layer='c_d_log1p', to_layer='c_d_deltas')
 
     # 8. Add a binary mask layer specifying valid observations for metric computation
     adata.layers['mask'] = adata.layers['tpm'] != 0
+    
     # Print with the percentage of the dataset that was replaced
     print('Percentage of imputed observations with median filter: {:5.3f}%'.format(100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))
 
@@ -904,10 +921,11 @@ def process_dataset(dataset: str, adata: ad.AnnData, param_dict: dict, hex_geome
 
 ### Patch processing function:
 
-
-# FIXME: keep patch_scale as parameter?
-# TODO: Fix documentation when the above fixme is solved.
-def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0) -> None:
+# FIXME: keep patch_scale as parameter? nop
+# assert: que exista la escala
+# assert solo una llave que corresponda a patch_scale 
+# TODO: Fix documentation when the above fixme is solved. (DONE)
+def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", preds: bool=True, patch_size: int = 224) -> None:
     """
     This function computes embeddings or predictions for a given backbone model and adata object. It can optionally
     compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are
@@ -924,7 +942,6 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
         model_path (str, optional): The path to a stored model. If set to 'None', then a pretrained model is used. Defaults to "None".
         preds (bool, optional): True if predictions are to be computed, False if embeddings are to be computed. Defaults to True.
         patch_size (int, optional): The size of the patches. Defaults to 224.
-        patch_scale (float, optional): The scale of the patches. Defaults to 1.0.
 
     Raises:
         ValueError: If the backbone is not supported.
@@ -934,7 +951,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # Define the model
-    model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars)
+    model = im_encoder.ImageEncoder(backbone=backbone, use_pretrained=True, latent_dim=adata.n_vars, patch_scale=1.0)
 
     if model_path != "None":
         saved_model = torch.load(model_path)
@@ -1008,6 +1025,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
     preprocess = weights.transforms(antialias=True)
 
     # Get the patches
+    # patch_scale = 1.0
     flat_patches = adata.obsm[f'patches_scale_{patch_scale}']
 
     # Reshape all the patches to the original shape
@@ -1047,7 +1065,7 @@ def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str 
 
 ### Adata dataloader building function:
 
-# TODO: Fix the internal fixme
+# TODO: Fix the internal fixme (DISCUSS AGAIN)
 def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_size: int = 128, shuffle: bool = True, use_cuda: bool = False) -> Tuple[AnnLoader, AnnLoader, AnnLoader]:
     """
     This function returns the dataloaders for training an image encoder. This means training a purely vision-based model on only
@@ -1070,8 +1088,10 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
 
     ##### Addition to handle noisy training #####
 
-    # FIXME: Put this in a part of the complete processing pipeline instead of the dataloader function.
+    # FIXME: Put this in a part of the complete processing pipeline instead of the dataloader function. 
     # Handle noisy training
+    # Add this function in procces_data function and automaticaaly generate noisy layers for this layers:
+    # c_d_log1p, c_t_log1p, c_d_deltas, c_t_deltas
     adata = add_noisy_layer(adata=adata, prediction_layer=layer)
 
     # Set the X of the adata to the layer casted to float32
@@ -1100,7 +1120,8 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
 
     return train_dataloader, val_dataloader, test_dataloader
 
-
+# funcion de complete with spackle para que queden las capas de transformers (REVISAR COMO HACER ESTO)
+# PARAMETROS SEGUN LO QUE FUNCIONÓ MEJOR PARA LA MAYORIA
 ### Graph building functions:
 
 def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool) -> Tuple[dict,int]:
@@ -1304,7 +1325,7 @@ def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=Tr
     # Return the graph dict
     return graph_dict
 
-# TODO: Fix the internal fixme
+# TODO: Fix the internal fixme (DEPENDS ON THE PREVIOUS DISCUSSION)
 def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_t_log1p', n_hops: int = 2, backbone: str ='None', model_path: str = "best_stnet.pt", batch_size: int = 128, 
                           shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
     """

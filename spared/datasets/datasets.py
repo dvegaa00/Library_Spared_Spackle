@@ -115,7 +115,8 @@ class SpatialDataset():
                             }, 
         patch_scale: float = 1.0,
         patch_size: int = 224,
-        force_compute: bool = False
+        force_compute: bool = False,
+        visualize: bool = True
         ):
         """
         This is a spatial data class that contains all the information about the dataset. It will call a reader class depending on the type
@@ -153,6 +154,7 @@ class SpatialDataset():
         self.patch_scale = patch_scale
         self.patch_size = patch_size
         self.force_compute = force_compute
+        self.visualize = visualize
         self.hex_geometry = False if self.dataset == 'stnet_dataset' else True # FIXME: Be careful with this attribute if we want to include more technologies
 
         # We initialize the reader class (Both visium or stnet readers can be returned here)
@@ -276,24 +278,26 @@ class SpatialDataset():
             collection_filtered = processing.filter_dataset(adata=collection_raw, param_dict=self.param_dict)
             # Process data
             collection_processed = processing.process_dataset(
-                dataset=self.dataset, adata=collection_filtered, param_dict=self.param_dict, hex_geometry=self.hex_geometry)
+                adata=collection_filtered, param_dict=self.param_dict, hex_geometry=self.hex_geometry)
 
             # Save the processed data
             os.makedirs(self.dataset_path, exist_ok=True)
             collection_raw.write(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
             collection_processed.write(os.path.join(self.dataset_path, f'adata.h5ad'))
 
-            # QC plotting
-            visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
-            # Copy figures folder into public database
-            os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-            if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-            shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
-            
-            # Create README for dataset
-            if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
-                shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
+            if self.visualize:
+                # QC plotting
+                visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                # Copy figures folder into public database
+                os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
+                if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+                shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+                
+                # FIXME: what do i do with the README file? inside or outside the if?
+                # Create README for dataset
+                if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
+                    shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
 
         else:            
             # Load processed adata
@@ -309,16 +313,20 @@ class SpatialDataset():
             force_plotting = False
             if force_plotting:
                 collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
-                visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
-                # Copy figures folder into public database
-                os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-                if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-                shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
                 
-                # Create README for dataset
-                if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
-                    shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
+                #FIXME: given that we are forcing plotting should I remove the conditional based on the parameter visualize?
+                if self.visualize:
+                    visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                    # Copy figures folder into public database
+                    os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
+                    if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                        shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+                    shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
+                    
+                    # FIXME: what do i do with the README file? inside or outside the if?
+                    # Create README for dataset
+                    if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
+                        shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
 
         return collection_processed, collection_raw
     
@@ -381,7 +389,7 @@ class HisToGeneDataset(Dataset):
         return patch, coor, exp, mask
 
 
-def get_dataset(dataset_name: str) -> SpatialDataset:
+def get_dataset(dataset_name: str, visualize: bool) -> SpatialDataset:
     """
     This function receives the name of a dataset and retrieves a SpatialDataset object according to the arguments.
     Args:
@@ -410,7 +418,8 @@ def get_dataset(dataset_name: str) -> SpatialDataset:
         param_dict=config_dict, 
         patch_scale=patch_scale, 
         patch_size=patch_size, 
-        force_compute=force_compute
+        force_compute=force_compute,
+        visualize=visualize
     )
 
     return dataset
