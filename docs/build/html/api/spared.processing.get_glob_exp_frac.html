@@ -59,8 +59,25 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.filter_dataset.html">spared.processing.filter_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.tpm_normalization.html">spared.processing.tpm_normalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.log1p_transformation.html">spared.processing.log1p_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.clean_noise.html">spared.processing.clean_noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.combat_transformation.html">spared.processing.combat_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_deltas.html">spared.processing.get_deltas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.compute_moran.html">spared.processing.compute_moran</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.filter_by_moran.html">spared.processing.filter_by_moran</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.add_noisy_layer.html">spared.processing.add_noisy_layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.process_dataset.html">spared.processing.process_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.compute_patches_embeddings_and_predictions.html">spared.processing.compute_patches_embeddings_and_predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_pretrain_dataloaders.html">spared.processing.get_pretrain_dataloaders</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graphs_one_slide.html">spared.processing.get_graphs_one_slide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_sin_cos_positional_embeddings.html">spared.processing.get_sin_cos_positional_embeddings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graphs.html">spared.processing.get_graphs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graph_dataloaders.html">spared.processing.get_graph_dataloaders</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#module-spared.metrics">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#module-spared.visualize">Plotting</a></li>
 </ul>
 </li>
 </ul>
@@ -95,15 +112,17 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="spared.processing.get_glob_exp_frac">
 <span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">get_glob_exp_frac</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnData</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#get_glob_exp_frac"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.get_glob_exp_frac" title="Link to this definition"></a></dt>
-<dd><p>Compute the global expression fraction for each gene in the dataset.</p>
-<p>This function computes the global expression fraction for each gene in the dataset. Internally it computes the fraction of non-zero
-observations for each gene across all the slides in the collection.</p>
+<dd><p>Compute the global expression fraction for all genes.</p>
+<p>This function computes the global expression fraction for each gene in a dataset.</p>
+<p>The global expression fraction of a gene in a dataset is defined as the proportion of spots where that gene is expressed. It is a number between <code class="docutils literal notranslate"><span class="pre">0</span></code>
+and <code class="docutils literal notranslate"><span class="pre">1</span></code> where <code class="docutils literal notranslate"><span class="pre">0</span></code> means that the gene is not expressed in any spot and <code class="docutils literal notranslate"><span class="pre">1</span></code> means that the gene is expressed in all the spots. Its difference
+with the expression fraction is that the global expression fraction is computed for the whole dataset and not for each slide.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
-<dd class="field-odd"><p><strong>adata</strong> (<em>ad.AnnData</em>) – A slide collection where a non expressed gene is defined as having a value of 0 in the adata.X matrix.</p>
+<dd class="field-odd"><p><strong>adata</strong> (<em>ad.AnnData</em>) – A slide collection where a non-expressed genes have a value of <code class="docutils literal notranslate"><span class="pre">0</span></code> in the <code class="docutils literal notranslate"><span class="pre">adata.X</span></code> matrix.</p>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>The updated slide collection with the glob_exp_frac added to the var dataframe.</p>
+<dd class="field-even"><p>The updated slide collection with the information added into the  <code class="docutils literal notranslate"><span class="pre">adata.var['glob_exp_frac']</span></code> column.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
 <dd class="field-odd"><p>ad.AnnData</p>

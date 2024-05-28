@@ -24,6 +24,7 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="spared.processing.tpm_normalization" href="spared.processing.tpm_normalization.html" />
     <link rel="prev" title="spared.processing.get_glob_exp_frac" href="spared.processing.get_glob_exp_frac.html" /> 
 </head>
 
@@ -58,8 +59,25 @@
 <li class="toctree-l4"><a class="reference internal" href="#spared.processing.filter_dataset"><code class="docutils literal notranslate"><span class="pre">filter_dataset()</span></code></a></li>
 </ul>
 </li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.tpm_normalization.html">spared.processing.tpm_normalization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.log1p_transformation.html">spared.processing.log1p_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.clean_noise.html">spared.processing.clean_noise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.combat_transformation.html">spared.processing.combat_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_deltas.html">spared.processing.get_deltas</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.compute_moran.html">spared.processing.compute_moran</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.filter_by_moran.html">spared.processing.filter_by_moran</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.add_noisy_layer.html">spared.processing.add_noisy_layer</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.process_dataset.html">spared.processing.process_dataset</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.compute_patches_embeddings_and_predictions.html">spared.processing.compute_patches_embeddings_and_predictions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_pretrain_dataloaders.html">spared.processing.get_pretrain_dataloaders</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graphs_one_slide.html">spared.processing.get_graphs_one_slide</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_sin_cos_positional_embeddings.html">spared.processing.get_sin_cos_positional_embeddings</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graphs.html">spared.processing.get_graphs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_graph_dataloaders.html">spared.processing.get_graph_dataloaders</a></li>
 </ul>
 </li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#module-spared.metrics">Metrics</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../api.html#module-spared.visualize">Plotting</a></li>
 </ul>
 </li>
 </ul>
@@ -96,59 +114,55 @@
 <span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">filter_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">param_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">dict</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnData</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#filter_dataset"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.filter_dataset" title="Link to this definition"></a></dt>
 <dd><p>Perform complete filtering pipeline of a slide collection.</p>
 <p>This function takes a completely unfiltered and unprocessed (in raw counts) slide collection and filters it
-(both samples and genes) according to the param_dict argument. A summary list of the steps is the following:</p>
+(both samples and genes) according to the <code class="docutils literal notranslate"><span class="pre">param_dict</span></code> argument.
+A summary list of the steps is the following:</p>
 <blockquote>
-<div><ol class="arabic simple">
-<li><p>Filter out observations with total_counts outside the range [param_dict[‘cell_min_counts’], param_dict[‘cell_max_counts’]].
+<div><ol class="arabic">
+<li><p>Filter out observations with <code class="docutils literal notranslate"><span class="pre">total_counts</span></code> outside the range <code class="docutils literal notranslate"><span class="pre">[param_dict['cell_min_counts'],</span> <span class="pre">param_dict['cell_max_counts']]</span></code>.
 This filters out low quality observations not suitable for analysis.</p></li>
-<li><dl class="simple">
-<dt>Compute the exp_frac for each gene. This means that for each slide in the collection we compute</dt><dd><p>the fraction of the observations that express each gene and then take the minimum across all the slides.
-(see get_exp_frac function for more details).</p>
-</dd>
-</dl>
-</li>
-<li><p>Compute the glob_exp_frac for each gene. This is similar to the exp_frac but instead of computing for each
+<li><p>Compute the <code class="docutils literal notranslate"><span class="pre">exp_frac</span></code> for each gene. This means that for each slide in the collection we compute the fraction of the spots that express each gene and then take the minimum across all the slides (see <code class="docutils literal notranslate"><span class="pre">get_exp_frac</span></code> function for more details).</p></li>
+<li><p>Compute the <code class="docutils literal notranslate"><span class="pre">glob_exp_frac</span></code> for each gene. This is similar to the <code class="docutils literal notranslate"><span class="pre">exp_frac</span></code> but instead of computing for each
 slide and taking the minimum we compute it for the whole collection. Slides don’t matter here
-(see get_glob_exp_frac function for more details).</p></li>
-<li><dl class="simple">
-<dt>Filter out genes depending on the param_dict[‘wildcard_genes’] value, the options are the following:</dt><dd><ol class="loweralpha simple">
-<li><dl class="simple">
-<dt>param_dict[‘wildcard_genes’] == ‘None’:</dt><dd><ul class="simple">
-<li><p>Filter out genes that are not expressed in at least param_dict[‘min_exp_frac’] of spots in each slide.</p></li>
-<li><p>Filter out genes that are not expressed in at least param_dict[‘min_glob_exp_frac’] of cells in the whole collection.</p></li>
-<li><p>Filter out genes with counts outside the range [param_dict[‘gene_min_counts’], param_dict[‘gene_max_counts’]]</p></li>
+(see <code class="docutils literal notranslate"><span class="pre">get_glob_exp_frac</span></code> function for more details).</p></li>
+<li><p>Filter out genes depending on the <code class="docutils literal notranslate"><span class="pre">param_dict['wildcard_genes']</span></code> value, the options are the following:</p>
+<blockquote>
+<div><ol class="loweralpha">
+<li><p><code class="docutils literal notranslate"><span class="pre">param_dict['wildcard_genes']</span> <span class="pre">==</span> <span class="pre">'None'</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Filter out genes that are not expressed in at least <code class="docutils literal notranslate"><span class="pre">param_dict['min_exp_frac']</span></code> of spots in each slide.</p></li>
+<li><p>Filter out genes that are not expressed in at least <code class="docutils literal notranslate"><span class="pre">param_dict['min_glob_exp_frac']</span></code> of spots in the whole collection.</p></li>
+<li><p>Filter out genes with counts outside the range <code class="docutils literal notranslate"><span class="pre">[param_dict['gene_min_counts'],</span> <span class="pre">param_dict['gene_max_counts']]</span></code></p></li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 </li>
-<li><dl class="simple">
-<dt>param_dict[‘wildcard_genes’] != ‘None’:</dt><dd><ul class="simple">
-<li><p>Read .txt file specified by param_dict[‘wildcard_genes’] and leave only the genes that are in this file.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">param_dict['wildcard_genes']</span> <span class="pre">!=</span> <span class="pre">'None'</span></code>:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Read <code class="docutils literal notranslate"><span class="pre">.txt</span></code> file specified by <code class="docutils literal notranslate"><span class="pre">param_dict['wildcard_genes']</span></code> and leave only the genes that are in this file.</p></li>
 </ul>
-</dd>
-</dl>
+</div></blockquote>
 </li>
 </ol>
-</dd>
-</dl>
+</div></blockquote>
 </li>
-<li><p>If there are cells with zero counts in all genes then remove them.</p></li>
-<li><p>Compute quality control metrics using scanpy’s sc.pp.calculate_qc_metrics function.</p></li>
+<li><p>If there are spots with zero counts in all genes after gene filtering, remove them.</p></li>
+<li><p>Compute quality control metrics using scanpy’s <code class="docutils literal notranslate"><span class="pre">sc.pp.calculate_qc_metrics</span></code> function.</p></li>
 </ol>
 </div></blockquote>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>adata</strong> (<em>ad.AnnData</em>) – An unfiltered (unexpressed genes are encoded as 0 on the adata.X matrix) slide collection.</p></li>
+<li><p><strong>adata</strong> (<em>ad.AnnData</em>) – An unfiltered (unexpressed genes are encoded as <code class="docutils literal notranslate"><span class="pre">0</span></code> on the <code class="docutils literal notranslate"><span class="pre">adata.X</span> <span class="pre">matrix</span></code>) slide collection.</p></li>
 <li><p><strong>param_dict</strong> (<em>dict</em>) – <p>Dictionary that contains filtering and processing parameters. Keys that must be present are:</p>
 <ul>
-<li><p>’cell_min_counts’: (int) Minimum total counts for a spot to be considered valid.</p></li>
-<li><p>’cell_max_counts’: (int) Maximum total counts for a spot to be considered valid.</p></li>
-<li><p>’gene_min_counts’: (int) Minimum total counts for a gene to be considered valid.</p></li>
-<li><p>’gene_max_counts’: (int) Maximum total counts for a gene to be considered valid.</p></li>
-<li><p>’min_exp_frac’: (float) Minimum fraction of spots in any slide that must express a gene for it to be considered valid.</p></li>
-<li><p>’min_glob_exp_frac’: (float) Minimum fraction of spots in the whole collection that must express a gene for it to be considered valid.</p></li>
-<li><p>’wildcard_genes’: (str) Path to a .txt file with the genes to keep or ‘None’ to filter genes based on the other keys.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cell_min_counts'</span></code> (<em>int</em>):      Minimum total counts for a spot to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'cell_max_counts'</span></code> (<em>int</em>):      Maximum total counts for a spot to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'gene_min_counts'</span></code> (<em>int</em>):      Minimum total counts for a gene to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'gene_max_counts'</span></code> (<em>int</em>):      Maximum total counts for a gene to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'min_exp_frac'</span></code> (<em>float</em>):       Minimum fraction of spots in any slide that must express a gene for it to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'min_glob_exp_frac'</span></code> (<em>float</em>):  Minimum fraction of spots in the whole collection that must express a gene for it to be valid.</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">'wildcard_genes'</span></code> (<em>str</em>):       Path to a <code class="docutils literal notranslate"><span class="pre">.txt</span></code> file with the genes to keep or <code class="docutils literal notranslate"><span class="pre">'None'</span></code> to filter genes based on the other keys.</p></li>
 </ul>
 </p></li>
 </ul>
@@ -169,6 +183,7 @@ slide and taking the minimum we compute it for the whole collection. Slides don�
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
         <a href="spared.processing.get_glob_exp_frac.html" class="btn btn-neutral float-left" title="spared.processing.get_glob_exp_frac" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="spared.processing.tpm_normalization.html" class="btn btn-neutral float-right" title="spared.processing.tpm_normalization" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

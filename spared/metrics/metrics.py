@@ -270,7 +270,8 @@ def slow_r2_score_patch(gt_mat: torch.Tensor, pred_mat: torch.Tensor, mask: torc
 
 
 def get_metrics(gt_mat: Union[np.array, torch.Tensor], pred_mat: Union[np.array, torch.Tensor], mask: Union[np.array, torch.Tensor], detailed: bool = False) -> dict:
-    """
+    """ Get general regression metrics
+
     This function receives 2 matrices of shapes (n_samples, n_genes) and computes the following metrics:
     
         - Pearson correlation (gene-wise) [PCC-Gene]

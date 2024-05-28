@@ -129,15 +129,15 @@
 <span class="k">def</span> <span class="nf">get_slide_from_collection</span><span class="p">(</span><span class="n">collection</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span>  <span class="n">slide</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Retrieve a slide from a collection of slides.</span>
 
-<span class="sd">    This function receives a slide name and returns an adata object of the specified slide based on the collection of slides</span>
+<span class="sd">    This function receives a slide name and returns an AnnData object of the specified slide based on the collection of slides</span>
 <span class="sd">    in the collection parameter.</span>
 
 <span class="sd">    Args: </span>
 <span class="sd">        collection (ad.AnnData): AnnData object with all the slides concatenated.</span>
-<span class="sd">        slide (str): Name of the slide to get from the collection. Must be in the column &#39;slide_id&#39; of the obs dataframe of the collection.</span>
+<span class="sd">        slide (str): Name of the slide to get from the collection. Must be in the ``slide_id`` column of the ``collection.obs`` dataframe.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: An anndata object with the specified slide.</span>
+<span class="sd">        ad.AnnData: An AnnData object with the specified slide.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Get the slide from the collection</span>
@@ -152,16 +152,20 @@
 <div class="viewcode-block" id="get_exp_frac">
 <a class="viewcode-back" href="../../../api/spared.processing.get_exp_frac.html#spared.processing.get_exp_frac">[docs]</a>
 <span class="k">def</span> <span class="nf">get_exp_frac</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the expression fraction for each gene in the dataset.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the expression fraction for all genes.</span>
 
-<span class="sd">    This function computes the expression fraction for each gene in the dataset. Internally it gets the</span>
-<span class="sd">    expression fraction for each slide and then takes the minimum across all the slides.</span>
+<span class="sd">    The expression fraction of a gene in a slide is defined as the proportion of spots where that gene is expressed. It is a number between ``0``</span>
+<span class="sd">    and ``1`` where ``0`` means that the gene is not expressed in any spot and ``1`` means that the gene is expressed in all the spots.</span>
+
+<span class="sd">    To compute an aggregation of expression fractions in a complete dataset, this function gets the</span>
+<span class="sd">    expression fraction for each slide and then takes the minimum across all the slides. Hence the final number is a lower bound that ensures</span>
+<span class="sd">    that the gene is expressed in at least that fraction of the spots in each of the slides.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): A slide collection where a non expressed gene is defined as having a value of 0 in the adata.X matrix.</span>
+<span class="sd">        adata (ad.AnnData): A slide collection where non-expressed genes have a value of ``0`` in the ``adata.X`` matrix.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated slide collection with the exp_frac added to the var dataframe.</span>
+<span class="sd">        ad.AnnData: The updated slide collection with the added information into the ``adata.var[&#39;exp_frac&#39;]`` column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Get the unique slide ids</span>
     <span class="n">slide_ids</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;slide_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
@@ -191,16 +195,19 @@
 <div class="viewcode-block" id="get_glob_exp_frac">
 <a class="viewcode-back" href="../../../api/spared.processing.get_glob_exp_frac.html#spared.processing.get_glob_exp_frac">[docs]</a>
 <span class="k">def</span> <span class="nf">get_glob_exp_frac</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the global expression fraction for each gene in the dataset.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute the global expression fraction for all genes.</span>
+<span class="sd">    </span>
+<span class="sd">    This function computes the global expression fraction for each gene in a dataset.</span>
 
-<span class="sd">    This function computes the global expression fraction for each gene in the dataset. Internally it computes the fraction of non-zero</span>
-<span class="sd">    observations for each gene across all the slides in the collection.</span>
+<span class="sd">    The global expression fraction of a gene in a dataset is defined as the proportion of spots where that gene is expressed. It is a number between ``0``</span>
+<span class="sd">    and ``1`` where ``0`` means that the gene is not expressed in any spot and ``1`` means that the gene is expressed in all the spots. Its difference</span>
+<span class="sd">    with the expression fraction is that the global expression fraction is computed for the whole dataset and not for each slide.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): A slide collection where a non expressed gene is defined as having a value of 0 in the adata.X matrix.</span>
+<span class="sd">        adata (ad.AnnData): A slide collection where a non-expressed genes have a value of ``0`` in the ``adata.X`` matrix.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated slide collection with the glob_exp_frac added to the var dataframe.</span>
+<span class="sd">        ad.AnnData: The updated slide collection with the information added into the  ``adata.var[&#39;glob_exp_frac&#39;]`` column.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Get global expression fraction</span>
     <span class="n">glob_exp_frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">((</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_obs</span><span class="p">))</span>
@@ -218,37 +225,39 @@
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Perform complete filtering pipeline of a slide collection.</span>
 
 <span class="sd">    This function takes a completely unfiltered and unprocessed (in raw counts) slide collection and filters it</span>
-<span class="sd">    (both samples and genes) according to the param_dict argument. A summary list of the steps is the following:</span>
+<span class="sd">    (both samples and genes) according to the ``param_dict`` argument.</span>
+<span class="sd">    A summary list of the steps is the following:</span>
 
-<span class="sd">        1. Filter out observations with total_counts outside the range [param_dict[&#39;cell_min_counts&#39;], param_dict[&#39;cell_max_counts&#39;]].</span>
+<span class="sd">        1. Filter out observations with ``total_counts`` outside the range ``[param_dict[&#39;cell_min_counts&#39;], param_dict[&#39;cell_max_counts&#39;]]``.</span>
 <span class="sd">           This filters out low quality observations not suitable for analysis.</span>
-<span class="sd">        2. Compute the exp_frac for each gene. This means that for each slide in the collection we compute</span>
-<span class="sd">            the fraction of the observations that express each gene and then take the minimum across all the slides.</span>
-<span class="sd">            (see get_exp_frac function for more details).</span>
-<span class="sd">        3. Compute the glob_exp_frac for each gene. This is similar to the exp_frac but instead of computing for each</span>
+<span class="sd">        2. Compute the ``exp_frac`` for each gene. This means that for each slide in the collection we compute the fraction of the spots that express each gene and then take the minimum across all the slides (see ``get_exp_frac`` function for more details).</span>
+<span class="sd">        3. Compute the ``glob_exp_frac`` for each gene. This is similar to the ``exp_frac`` but instead of computing for each</span>
 <span class="sd">           slide and taking the minimum we compute it for the whole collection. Slides don&#39;t matter here</span>
-<span class="sd">           (see get_glob_exp_frac function for more details).</span>
-<span class="sd">        4. Filter out genes depending on the param_dict[&#39;wildcard_genes&#39;] value, the options are the following:</span>
-<span class="sd">            a. param_dict[&#39;wildcard_genes&#39;] == &#39;None&#39;:</span>
-<span class="sd">                - Filter out genes that are not expressed in at least param_dict[&#39;min_exp_frac&#39;] of spots in each slide.</span>
-<span class="sd">                - Filter out genes that are not expressed in at least param_dict[&#39;min_glob_exp_frac&#39;] of cells in the whole collection.</span>
-<span class="sd">                - Filter out genes with counts outside the range [param_dict[&#39;gene_min_counts&#39;], param_dict[&#39;gene_max_counts&#39;]]</span>
-<span class="sd">            b. param_dict[&#39;wildcard_genes&#39;] != &#39;None&#39;:</span>
-<span class="sd">                - Read .txt file specified by param_dict[&#39;wildcard_genes&#39;] and leave only the genes that are in this file.</span>
-<span class="sd">        5. If there are cells with zero counts in all genes then remove them.</span>
-<span class="sd">        6. Compute quality control metrics using scanpy&#39;s sc.pp.calculate_qc_metrics function.</span>
+<span class="sd">           (see ``get_glob_exp_frac`` function for more details).</span>
+<span class="sd">        4. Filter out genes depending on the ``param_dict[&#39;wildcard_genes&#39;]`` value, the options are the following:</span>
+
+<span class="sd">            a. ``param_dict[&#39;wildcard_genes&#39;] == &#39;None&#39;``:</span>
+
+<span class="sd">                - Filter out genes that are not expressed in at least ``param_dict[&#39;min_exp_frac&#39;]`` of spots in each slide.</span>
+<span class="sd">                - Filter out genes that are not expressed in at least ``param_dict[&#39;min_glob_exp_frac&#39;]`` of spots in the whole collection.</span>
+<span class="sd">                - Filter out genes with counts outside the range ``[param_dict[&#39;gene_min_counts&#39;], param_dict[&#39;gene_max_counts&#39;]]``</span>
+<span class="sd">            b. ``param_dict[&#39;wildcard_genes&#39;] != &#39;None&#39;``:</span>
+
+<span class="sd">                - Read ``.txt`` file specified by ``param_dict[&#39;wildcard_genes&#39;]`` and leave only the genes that are in this file.</span>
+<span class="sd">        5. If there are spots with zero counts in all genes after gene filtering, remove them.</span>
+<span class="sd">        6. Compute quality control metrics using scanpy&#39;s ``sc.pp.calculate_qc_metrics`` function.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): An unfiltered (unexpressed genes are encoded as 0 on the adata.X matrix) slide collection.</span>
+<span class="sd">        adata (ad.AnnData): An unfiltered (unexpressed genes are encoded as ``0`` on the ``adata.X matrix``) slide collection.</span>
 <span class="sd">        param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:</span>
 
-<span class="sd">            - &#39;cell_min_counts&#39;: (int) Minimum total counts for a spot to be considered valid.</span>
-<span class="sd">            - &#39;cell_max_counts&#39;: (int) Maximum total counts for a spot to be considered valid.</span>
-<span class="sd">            - &#39;gene_min_counts&#39;: (int) Minimum total counts for a gene to be considered valid.</span>
-<span class="sd">            - &#39;gene_max_counts&#39;: (int) Maximum total counts for a gene to be considered valid.</span>
-<span class="sd">            - &#39;min_exp_frac&#39;: (float) Minimum fraction of spots in any slide that must express a gene for it to be considered valid.</span>
-<span class="sd">            - &#39;min_glob_exp_frac&#39;: (float) Minimum fraction of spots in the whole collection that must express a gene for it to be considered valid.</span>
-<span class="sd">            - &#39;wildcard_genes&#39;: (str) Path to a .txt file with the genes to keep or &#39;None&#39; to filter genes based on the other keys.</span>
+<span class="sd">            - ``&#39;cell_min_counts&#39;`` (*int*):      Minimum total counts for a spot to be valid.</span>
+<span class="sd">            - ``&#39;cell_max_counts&#39;`` (*int*):      Maximum total counts for a spot to be valid.</span>
+<span class="sd">            - ``&#39;gene_min_counts&#39;`` (*int*):      Minimum total counts for a gene to be valid.</span>
+<span class="sd">            - ``&#39;gene_max_counts&#39;`` (*int*):      Maximum total counts for a gene to be valid.</span>
+<span class="sd">            - ``&#39;min_exp_frac&#39;`` (*float*):       Minimum fraction of spots in any slide that must express a gene for it to be valid.</span>
+<span class="sd">            - ``&#39;min_glob_exp_frac&#39;`` (*float*):  Minimum fraction of spots in the whole collection that must express a gene for it to be valid.</span>
+<span class="sd">            - ``&#39;wildcard_genes&#39;`` (*str*):       Path to a ``.txt`` file with the genes to keep or ``&#39;None&#39;`` to filter genes based on the other keys.</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        ad.AnnData: The filtered adata collection.</span>
@@ -337,21 +346,24 @@
 <span class="c1">### Expression data processing functions:</span>
 
 <span class="c1"># FIXME: Put the organism as a parameter instead of in the name of the dataset</span>
+<div class="viewcode-block" id="tpm_normalization">
+<a class="viewcode-back" href="../../../api/spared.processing.tpm_normalization.html#spared.processing.tpm_normalization">[docs]</a>
 <span class="k">def</span> <span class="nf">tpm_normalization</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the gtf annotation file.</span>
-<span class="sd">    The counts of the anndata are taken from the layer &#39;from_layer&#39; and the results are stored in the layer &#39;to_layer&#39;. It can perform the normalization</span>
-<span class="sd">    for human (https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz) and mouse</span>
-<span class="sd">    (https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz) reference genomes. To specify which GTF annotation</span>
-<span class="sd">    file should be used, the string parameter &#39;dataset&#39; must contain the substring &#39;mouse&#39; or &#39;human&#39;.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize expression using TPM normalization.</span>
+
+<span class="sd">    This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the ``.gtf`` annotation file.</span>
+<span class="sd">    The counts are taken from ``adata.layers[from_layer]`` and the results are stored in ``adata.layers[to_layer]``. It can perform the normalization</span>
+<span class="sd">    for `human &lt;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz&gt;`_ and `mouse</span>
+<span class="sd">    &lt;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz&gt;`_ reference genomes.</span>
+<span class="sd">    To specify which GTF annotation file should be used, the string parameter ``&#39;dataset&#39;`` must contain the substring ``&#39;mouse&#39;`` or ``&#39;human&#39;``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        dataset (str): The dataset name. Must contain the substring &#39;mouse&#39; or &#39;human&#39; to specify the reference genome.</span>
+<span class="sd">        dataset (str): The dataset name. Must contain the substring ``&#39;mouse&#39;`` or ``&#39;human&#39;`` to specify the reference genome.</span>
 <span class="sd">        adata (ad.Anndata): The Anndata object to normalize.</span>
-<span class="sd">        from_layer (str): The layer to take the counts from.</span>
+<span class="sd">        from_layer (str): The layer to take the counts from. The data in this layer should be in raw counts.</span>
 <span class="sd">        to_layer (str): The layer to store the results of the normalization.</span>
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.Anndata: The updated Anndata object with TPM values in the .layers[to_layer] attribute.</span>
+<span class="sd">        ad.Anndata: The updated Anndata object with TPM values in ``adata.layers[to_layer]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
     <span class="c1"># Get the number of genes before filtering</span>
@@ -438,12 +450,16 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Number of genes not found in GTF file by TPM normalization: </span><span class="si">{</span><span class="n">initial_genes</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="si">}</span><span class="s1"> out of </span><span class="si">{</span><span class="n">initial_genes</span><span class="si">}</span><span class="s1"> (</span><span class="si">{</span><span class="mi">100</span><span class="o">*</span><span class="n">failed_genes</span><span class="o">/</span><span class="n">initial_genes</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">%) (</span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="si">}</span><span class="s1"> remaining)&#39;</span><span class="p">)</span>
 
     <span class="c1"># Return the transformed AnnData object</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
 
+
+<div class="viewcode-block" id="log1p_transformation">
+<a class="viewcode-back" href="../../../api/spared.processing.log1p_transformation.html#spared.processing.log1p_transformation">[docs]</a>
 <span class="k">def</span> <span class="nf">log1p_transformation</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Performs logarithmic transformation over anndata.layers[from_layer]. Simple wrapper around scanpy&#39;s sc.pp.log1p()</span>
-<span class="sd">    to transform data from adata.layers[from_layer] with log1p (base 2) and save it in adata.layers[to_layer].</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Perform :math:`\log_2(x+1)` transformation </span>
+
+<span class="sd">    Performs logarithmic transformation over ``adata.layers[from_layer]``. Simple wrapper of scanpy&#39;s ``sc.pp.log1p()``</span>
+<span class="sd">    (base 2) to transform data from ``adata.layers[from_layer]`` and save it into ``adata.layers[to_layer]``.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        adata (ad.AnnData): The AnnData object to transform.</span>
@@ -451,7 +467,7 @@
 <span class="sd">        to_layer (str): The layer to store the results of the transformation.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated AnnData object with log1p transformed data in adata.layers[to_layer].</span>
+<span class="sd">        ad.AnnData: The updated AnnData object with transformed data in ``adata.layers[to_layer]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Transform the data with log1p</span>
@@ -461,22 +477,27 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">to_layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">transformed_adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">from_layer</span><span class="p">]</span>
 
     <span class="c1"># Return the transformed AnnData object</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
 
+
+<div class="viewcode-block" id="clean_noise">
+<a class="viewcode-back" href="../../../api/spared.processing.clean_noise.html#spared.processing.clean_noise">[docs]</a>
 <span class="k">def</span> <span class="nf">clean_noise</span><span class="p">(</span><span class="n">collection</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Function that cleans noise with a modified adaptive median filter for each slide in an anndata collection and then concatenates the results</span>
-<span class="sd">    into another collection. Details of the adaptive median filter can be found in the adaptive_median_filter_peper() function.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Remove noise with median filter.</span>
+
+<span class="sd">    Function that cleans noise (missing data) with a modified adaptive median filter for each slide in an AnnData collection.</span>
+<span class="sd">    Details of the adaptive median filter can be found in the ``adaptive_median_filter_pepper()`` function inside the source code.</span>
+<span class="sd">    The data will be taken from ``adata.layers[from_layer]`` and the results will be stored in ``adata.layers[to_layer]``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        collection (ad.AnnData): The AnnData collection to process. Contains all the slides.</span>
+<span class="sd">        collection (ad.AnnData): The AnnData collection to process.</span>
 <span class="sd">        from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.</span>
 <span class="sd">        to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.</span>
-<span class="sd">        n_hops (int): The maximum number of concentric rings in the graph to take into account to compute the median. Analogous to the max window size.</span>
-<span class="sd">        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.</span>
+<span class="sd">        n_hops (int): The maximum number of concentric rings in the neighbors graph to take into account to compute the median. Analogous to the maximum window size.</span>
+<span class="sd">        hex_geometry (bool): ``True``, if the graph has hexagonal spatial geometry (Visium technology). If False, then the graph is a grid.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer &#39;to_layer&#39;.</span>
+<span class="sd">        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer ``adata.layers[to_layer]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
     <span class="c1"># FIXME: This function can be used alone. Think of getting it outside.</span>
@@ -675,21 +696,26 @@
     <span class="c1"># Restore the uns attribute</span>
     <span class="n">corrected_collection</span><span class="o">.</span><span class="n">uns</span> <span class="o">=</span> <span class="n">collection</span><span class="o">.</span><span class="n">uns</span>
 
-    <span class="k">return</span> <span class="n">corrected_collection</span>
+    <span class="k">return</span> <span class="n">corrected_collection</span></div>
 
+
+<div class="viewcode-block" id="combat_transformation">
+<a class="viewcode-back" href="../../../api/spared.processing.combat_transformation.html#spared.processing.combat_transformation">[docs]</a>
 <span class="k">def</span> <span class="nf">combat_transformation</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">batch_key</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute batch correction using pycombat. The batches are defined by the batch_key column in adata.obs. The input data for</span>
-<span class="sd">    the batch correction is adata.layers[from_layer] and the output is stored in adata.layers[to_layer].</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Perform batch correction with ComBat</span>
+
+<span class="sd">    Compute batch correction using the `pycombat &lt;https://github.com/epigenelabs/pyComBat?tab=readme-ov-file&gt;`_ package. The batches are defined by ``adata.obs[batch_key]`` so</span>
+<span class="sd">    the user can define which variable to use as batch identifier. The input data for the batch correction is ``adata.layers[from_layer]`` and the output is stored in</span>
+<span class="sd">    ``adata.layers[to_layer]``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): The AnnData object to transform. Must have logarithmically transformed data in adata.layers[from_layer].</span>
-<span class="sd">        batch_key (str): The column in adata.obs that defines the batches.</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to transform. Must have logarithmically transformed data in ``adata.layers[from_layer]``.</span>
+<span class="sd">        batch_key (str): The column in ``adata.obs`` that defines the batches.</span>
 <span class="sd">        from_layer (str): The layer to take the data from.</span>
 <span class="sd">        to_layer (str): The layer to store the results of the transformation.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated AnnData object with batch corrected data in adata.layers[to_layer].</span>
+<span class="sd">        ad.AnnData: The updated AnnData object with batch corrected data in ``adata.layers[to_layer]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Get expression matrix dataframe</span>
     <span class="n">df</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span> <span class="o">=</span> <span class="n">from_layer</span><span class="p">)</span><span class="o">.</span><span class="n">T</span>
@@ -701,23 +727,26 @@
     <span class="c1"># Assign batch corrected expression to .layers[to_layer] attribute</span>
     <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">to_layer</span><span class="p">]</span> <span class="o">=</span> <span class="n">corrected_df</span><span class="o">.</span><span class="n">T</span>
 
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
 
+
+<div class="viewcode-block" id="get_deltas">
+<a class="viewcode-back" href="../../../api/spared.processing.get_deltas.html#spared.processing.get_deltas">[docs]</a>
 <span class="k">def</span> <span class="nf">get_deltas</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute the deviations from the mean expression of each gene in adata.layers[from_layer] and save them</span>
-<span class="sd">    in adata.layers[to_layer]. Also add the mean expression of each gene to adata.var[f&#39;{from_layer}_avg_exp&#39;].</span>
-<span class="sd">    Average expression is computed using the &#39;train&#39; determined by the adata.obs[&#39;split&#39;] column. However all</span>
-<span class="sd">    observations are used to compute the deltas.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get expression deltas from the mean.</span>
+
+<span class="sd">    Compute the deviations from the mean expression of each gene in ``adata.layers[from_layer]`` and save them</span>
+<span class="sd">    in ``adata.layers[to_layer]``. Also add the mean expression of each gene to ``adata.var[f&#39;{from_layer}_avg_exp&#39;]``.</span>
+<span class="sd">    Average expression is computed using only train data determined by the ``adata.obs[&#39;split&#39;]`` column. However, deltas</span>
+<span class="sd">    are computed for all observations.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].</span>
-<span class="sd">                            Must also have the adata.obs[&#39;split&#39;] column with the &#39;train&#39; values.</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have expression values in ``adata.layers[from_layer]``. Must also have the ``adata.obs[&#39;split&#39;]`` column with ``&#39;train&#39;`` values.</span>
 <span class="sd">        from_layer (str): The layer to take the data from.</span>
 <span class="sd">        to_layer (str): The layer to store the results of the transformation.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated AnnData object with the deltas and mean expression.</span>
+<span class="sd">        ad.AnnData: The updated AnnData object with the deltas (``adata.layers[to_layer]``) and mean expression (``adata.var[f&#39;{from_layer}_avg_exp&#39;]``) information.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1"># Get the expression matrix of both train and global data</span>
@@ -740,22 +769,27 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">from_layer</span><span class="si">}</span><span class="s1">_avg_exp&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scaler</span><span class="o">.</span><span class="n">mean_</span>
 
     <span class="c1"># Return the updated AnnData object</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
 
+
+<div class="viewcode-block" id="compute_moran">
+<a class="viewcode-back" href="../../../api/spared.processing.compute_moran.html#spared.processing.compute_moran">[docs]</a>
 <span class="k">def</span> <span class="nf">compute_moran</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Compute average Moran&#39;s I statistic for a collection of slides. Internally cycles over each slide in the adata object</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Compute Moran&#39;s I statistic for each gene.</span>
+
+<span class="sd">    Compute average Moran&#39;s I statistic for a collection of slides. Internally cycles over each slide in the ``adata`` collection</span>
 <span class="sd">    and computes the Moran&#39;s I statistic for each gene. After that, it averages the Moran&#39;s I for each gene across all</span>
-<span class="sd">    slides and saves it in adata.var[f&#39;{from_layer}_moran&#39;].The input data for the Moran&#39;s I computation is adata.layers[from_layer].</span>
+<span class="sd">    slides and saves it in ``adata.var[f&#39;{from_layer}_moran&#39;]``.The input data for the Moran&#39;s I computation is ``adata.layers[from_layer]``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have expression values in adata.layers[from_layer].</span>
-<span class="sd">        from_layer (str): The key in adata.layers with the values used to compute Moran&#39;s I.</span>
-<span class="sd">        hex_geometry (bool): Whether the geometry is hexagonal or not. This is used to compute the spatial neighbors before computing Moran&#39;s I. Only true for visium datasets.</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have expression values in ``adata.layers[from_layer]``.</span>
+<span class="sd">        from_layer (str): The key in ``adata.layers`` with the values used to compute Moran&#39;s I.</span>
+<span class="sd">        hex_geometry (bool): Whether the geometry is hexagonal or not. This is used to compute the spatial neighbors before computing Moran&#39;s I. Only ``True`` for visium datasets.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.AnnData: The updated AnnData object with the average Moran&#39;s I for each gene in adata.var[f&#39;{from_layer}_moran&#39;].</span>
+<span class="sd">        ad.AnnData: The updated AnnData object with the average Moran&#39;s I for each gene in ``adata.var[f&#39;{from_layer}_moran&#39;]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Computing Moran</span><span class="se">\&#39;</span><span class="s1">s I for each gene over each slide using data of layer </span><span class="si">{</span><span class="n">from_layer</span><span class="si">}</span><span class="s1">...&#39;</span><span class="p">)</span>
 
     <span class="c1"># Get the unique slide_ids</span>
@@ -798,20 +832,26 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">from_layer</span><span class="si">}</span><span class="s1">_moran&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">moran_df</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 
     <span class="c1"># Return the updated AnnData object</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
+
 
 <span class="c1"># TODO: Fix documentation when the internal fixme is solved</span>
+<div class="viewcode-block" id="filter_by_moran">
+<a class="viewcode-back" href="../../../api/spared.processing.filter_by_moran.html#spared.processing.filter_by_moran">[docs]</a>
 <span class="k">def</span> <span class="nf">filter_by_moran</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_keep</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    This function filters the genes in adata.var by the Moran&#39;s I statistic. It keeps the n_keep genes with the highest Moran&#39;s I.</span>
-<span class="sd">    The Moran&#39;s I values will be selected from adata.var[f&#39;{from_layer}_moran&#39;]. The column with the Moran&#39;s I values must be present in adata.var.</span>
-<span class="sd">    In case n_keep &lt;= 0, it means the number of genes is no specified. Then we compute w = adata.n_vars * 0.25 and assign n_keep 32 or 128 depending</span>
-<span class="sd">    on which is the closest to w. </span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Filter prediction genes by Moran&#39;s I.</span>
+
+<span class="sd">    This function filters the genes in ``adata.var`` by the Moran&#39;s I statistic. It keeps the ``n_keep`` genes with the highest Moran&#39;s I.</span>
+<span class="sd">    The Moran&#39;s I values will be selected from ``adata.var[f&#39;{from_layer}_moran&#39;]`` which must be already present in the ``adata``.</span>
+<span class="sd">    If ``n_keep &lt;= 0``, it means the number of genes is no specified and wee proceed to automatically compute it in the following way:</span>
+<span class="sd">    </span>
+<span class="sd">        a. If ``adata.n_vars &gt; 320`` then ``n_keep = 128``.</span>
+<span class="sd">        b. else, ``n_keep = 32``. </span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have adata.var[f&#39;{from_layer}_moran&#39;] column.</span>
-<span class="sd">        n_keep (int): The number of genes to keep.</span>
-<span class="sd">        from_layer (str): Layer for which the Moran&#39;s I was already computed (f&#39;{from_layer}_moran&#39;).</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have ``adata.var[f&#39;{from_layer}_moran&#39;]`` column.</span>
+<span class="sd">        n_keep (int): The number of genes to keep. I less than ``0`` the number of genes to keep is computed automatically.</span>
+<span class="sd">        from_layer (str): Layer for which the Moran&#39;s I was already computed (``adata.var[f&#39;{from_layer}_moran&#39;]``).</span>
 
 <span class="sd">    Returns:</span>
 <span class="sd">        ad.AnnData: The updated AnnData object with the filtered genes.</span>
@@ -841,12 +881,15 @@
     <span class="n">adata</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[:,</span> <span class="n">genes_to_keep</span><span class="p">]</span>
 
     <span class="c1"># Return the updated AnnData object</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
+
 
 
 <span class="c1"># TODO: Fix documentation when the internal fixme is solved. Another option is to put this function inside the initial preprocessing.</span>
+<div class="viewcode-block" id="add_noisy_layer">
+<a class="viewcode-back" href="../../../api/spared.processing.add_noisy_layer.html#spared.processing.add_noisy_layer">[docs]</a>
 <span class="k">def</span> <span class="nf">add_noisy_layer</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">prediction_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Add an artificial noisy layer.</span>
 <span class="sd">    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of &#39;noisy_d&#39;</span>
 <span class="sd">    or &#39;noisy&#39; depending on the prediction layer. The noisy layer is created by returning the missing values to an already denoised layer of the adata.</span>
 <span class="sd">    In the case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to the missing values. In the case the source</span>
@@ -892,15 +935,18 @@
     <span class="c1"># Give warning to say that the noisy layer is being used</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Using noisy_delta layer for training. This will probably yield bad results.&#39;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
+
 
 <span class="c1"># FIXME: hex_geometry default set to True (?). Check if this is needed.</span>
 <span class="c1"># FIXME: Shouldn&#39;t dataset be inside the param_dict and not a parameter</span>
 <span class="c1"># FIXME: Maybe the organism should be a key of the param_dict</span>
 <span class="c1"># FIXME: Hex geometry should also be inside the param_dict</span>
 <span class="c1"># TODO: Fix documentation when the above fixmes are solved.</span>
+<div class="viewcode-block" id="process_dataset">
+<a class="viewcode-back" href="../../../api/spared.processing.process_dataset.html#spared.processing.process_dataset">[docs]</a>
 <span class="k">def</span> <span class="nf">process_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Perform complete processing pipeline.</span>
 <span class="sd">    This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset</span>
 <span class="sd">    (adata.X). The processing pipeline is the following:</span>
 
@@ -987,7 +1033,8 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;The processed dataset looks like this:&#39;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
     
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
+
 
 
 <span class="c1">### Patch processing function:</span>
@@ -995,8 +1042,10 @@
 
 <span class="c1"># FIXME: keep patch_scale as parameter?</span>
 <span class="c1"># TODO: Fix documentation when the above fixme is solved.</span>
+<div class="viewcode-block" id="compute_patches_embeddings_and_predictions">
+<a class="viewcode-back" href="../../../api/spared.processing.compute_patches_embeddings_and_predictions.html#spared.processing.compute_patches_embeddings_and_predictions">[docs]</a>
 <span class="k">def</span> <span class="nf">compute_patches_embeddings_and_predictions</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;densenet&#39;</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span><span class="nb">str</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="n">preds</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">224</span><span class="p">,</span> <span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute embeddings or predictions for patches.</span>
 <span class="sd">    This function computes embeddings or predictions for a given backbone model and adata object. It can optionally</span>
 <span class="sd">    compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are</span>
 <span class="sd">    stored in adata.obsm[f&#39;embeddings_{backbone}&#39;] or adata.obsm[f&#39;predictions_{backbone}&#39;] respectively. The patches</span>
@@ -1006,9 +1055,7 @@
 
 <span class="sd">    Args:</span>
 <span class="sd">        adata (ad.AnnData): The AnnData object to process.</span>
-<span class="sd">        backbone (str, optional): A string specifiying the backbone model to use. Must be one of the following</span>
-<span class="sd">                                  [&#39;resnet&#39;, &#39;resnet50&#39;, &#39;ConvNeXt&#39;, &#39;EfficientNetV2&#39;, &#39;InceptionV3&#39;, &#39;MaxVit&#39;, &#39;MobileNetV3&#39;,</span>
-<span class="sd">                                    &#39;ResNetXt&#39;, &#39;ShuffleNetV2&#39;, &#39;ViT&#39;, &#39;WideResnet&#39;, &#39;densenet&#39;, &#39;swin&#39;]. Defaults to &#39;densenet&#39;.</span>
+<span class="sd">        backbone (str, optional): A string specifiying the backbone model to use. Must be one of the following [&#39;resnet&#39;, &#39;resnet50&#39;, &#39;ConvNeXt&#39;, &#39;EfficientNetV2&#39;, &#39;InceptionV3&#39;, &#39;MaxVit&#39;, &#39;MobileNetV3&#39;, &#39;ResNetXt&#39;, &#39;ShuffleNetV2&#39;, &#39;ViT&#39;, &#39;WideResnet&#39;, &#39;densenet&#39;, &#39;swin&#39;]. Defaults to &#39;densenet&#39;.</span>
 <span class="sd">        model_path (str, optional): The path to a stored model. If set to &#39;None&#39;, then a pretrained model is used. Defaults to &quot;None&quot;.</span>
 <span class="sd">        preds (bool, optional): True if predictions are to be computed, False if embeddings are to be computed. Defaults to True.</span>
 <span class="sd">        patch_size (int, optional): The size of the patches. Defaults to 224.</span>
@@ -1130,14 +1177,17 @@
     <span class="k">if</span> <span class="n">preds</span><span class="p">:</span>
         <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;predictions_</span><span class="si">{</span><span class="n">backbone</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputs</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;embeddings_</span><span class="si">{</span><span class="n">backbone</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputs</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;embeddings_</span><span class="si">{</span><span class="n">backbone</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">outputs</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span></div>
+
 
 
 <span class="c1">### Adata dataloader building function:</span>
 
 <span class="c1"># TODO: Fix the internal fixme</span>
+<div class="viewcode-block" id="get_pretrain_dataloaders">
+<a class="viewcode-back" href="../../../api/spared.processing.get_pretrain_dataloaders.html#spared.processing.get_pretrain_dataloaders">[docs]</a>
 <span class="k">def</span> <span class="nf">get_pretrain_dataloaders</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;c_d_log1p&#39;</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span> <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">AnnLoader</span><span class="p">,</span> <span class="n">AnnLoader</span><span class="p">,</span> <span class="n">AnnLoader</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get dataloaders for pretraining an image encoder.</span>
 <span class="sd">    This function returns the dataloaders for training an image encoder. This means training a purely vision-based model on only</span>
 <span class="sd">    the patches to predict the gene expression of the patches.</span>
 
@@ -1186,13 +1236,16 @@
     <span class="n">val_dataloader</span> <span class="o">=</span> <span class="n">AnnLoader</span><span class="p">(</span><span class="n">adata_val</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span> <span class="n">use_cuda</span><span class="o">=</span><span class="n">use_cuda</span><span class="p">)</span>
     <span class="n">test_dataloader</span> <span class="o">=</span> <span class="n">AnnLoader</span><span class="p">(</span><span class="n">adata_test</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">,</span> <span class="n">use_cuda</span><span class="o">=</span><span class="n">use_cuda</span><span class="p">)</span> <span class="k">if</span> <span class="n">adata_test</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
 
-    <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span>
+    <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span></div>
+
 
 
 <span class="c1">### Graph building functions:</span>
 
+<div class="viewcode-block" id="get_graphs_one_slide">
+<a class="viewcode-back" href="../../../api/spared.processing.get_graphs_one_slide.html#spared.processing.get_graphs_one_slide">[docs]</a>
 <span class="k">def</span> <span class="nf">get_graphs_one_slide</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">dict</span><span class="p">,</span><span class="nb">int</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get neighbor graphs for a single slide.</span>
 <span class="sd">    This function receives an AnnData object with a single slide and for each node computes the graph in an</span>
 <span class="sd">    n_hops radius in a pytorch geometric format. The AnnData object must have both embeddings and predictions in the</span>
 <span class="sd">    adata.obsm attribute.</span>
@@ -1208,8 +1261,7 @@
 
 <span class="sd">    Returns:</span>
 <span class="sd">        Tuple(dict,int)</span>
-<span class="sd">        dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values.</span>
-<span class="sd">            NOTE: The first node of every graph is the center.</span>
+<span class="sd">        dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values. The first node of every graph is the center.</span>
 <span class="sd">        int: Max column or row difference between the center and the neighbors. Used for positional encoding.                   </span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Compute spatial_neighbors</span>
@@ -1313,12 +1365,14 @@
     <span class="n">max_abs_d_pos</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">max_abs_d_pos</span><span class="p">)</span>
     
     <span class="c1"># Return the graph dict</span>
-    <span class="k">return</span> <span class="n">graph_dict</span><span class="p">,</span> <span class="n">max_abs_d_pos</span>
+    <span class="k">return</span> <span class="n">graph_dict</span><span class="p">,</span> <span class="n">max_abs_d_pos</span></div>
 
 
+
+<div class="viewcode-block" id="get_sin_cos_positional_embeddings">
+<a class="viewcode-back" href="../../../api/spared.processing.get_sin_cos_positional_embeddings.html#spared.processing.get_sin_cos_positional_embeddings">[docs]</a>
 <span class="k">def</span> <span class="nf">get_sin_cos_positional_embeddings</span><span class="p">(</span><span class="n">graph_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">max_d_pos</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get positional encodings for a neighbor graph.</span>
 <span class="sd">    This function adds a transformer-like positional encodings to each graph in a graph dict. It adds the positional</span>
 <span class="sd">    encodings under the attribute &#39;positional_embeddings&#39; for each graph. </span>
 
@@ -1346,11 +1400,14 @@
         <span class="n">grid_pos</span> <span class="o">=</span> <span class="n">d_pos</span> <span class="o">+</span> <span class="n">max_d_pos</span>
         <span class="n">graph_dict</span><span class="p">[</span><span class="n">key</span><span class="p">]</span><span class="o">.</span><span class="n">positional_embeddings</span> <span class="o">=</span> <span class="n">positional_look_up_table</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span><span class="n">grid_pos</span><span class="p">[:,</span><span class="mi">0</span><span class="p">],</span><span class="n">grid_pos</span><span class="p">[:,</span><span class="mi">1</span><span class="p">],:]</span>
     
-    <span class="k">return</span> <span class="n">graph_dict</span>
+    <span class="k">return</span> <span class="n">graph_dict</span></div>
 
 
+
+<div class="viewcode-block" id="get_graphs">
+<a class="viewcode-back" href="../../../api/spared.processing.get_graphs.html#spared.processing.get_graphs">[docs]</a>
 <span class="k">def</span> <span class="nf">get_graphs</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get graphs for all the slides in a dataset.</span>
 <span class="sd">    This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset.</span>
 <span class="sd">    After computing the graph dicts for each slide it concatenates them into a single dictionary which is then used to compute</span>
 <span class="sd">    the positional embeddings for each graph.</span>
@@ -1390,12 +1447,15 @@
     <span class="n">graph_dict</span> <span class="o">=</span> <span class="n">get_sin_cos_positional_embeddings</span><span class="p">(</span><span class="n">graph_dict</span><span class="p">,</span> <span class="n">max_global_d_pos</span><span class="p">)</span>
 
     <span class="c1"># Return the graph dict</span>
-    <span class="k">return</span> <span class="n">graph_dict</span>
+    <span class="k">return</span> <span class="n">graph_dict</span></div>
+
 
 <span class="c1"># TODO: Fix the internal fixme</span>
+<div class="viewcode-block" id="get_graph_dataloaders">
+<a class="viewcode-back" href="../../../api/spared.processing.get_graph_dataloaders.html#spared.processing.get_graph_dataloaders">[docs]</a>
 <span class="k">def</span> <span class="nf">get_graph_dataloaders</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">dataset_path</span><span class="p">:</span> <span class="nb">str</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;c_t_log1p&#39;</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;None&#39;</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;best_stnet.pt&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span> 
                           <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="o">=</span><span class="mi">224</span><span class="p">,</span> <span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">geo_DataLoader</span><span class="p">,</span> <span class="n">geo_DataLoader</span><span class="p">,</span> <span class="n">geo_DataLoader</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get dataloaders for the graphs of a dataset.</span>
 <span class="sd">    This function performs all the pipeline to get graphs dataloaders for a dataset. It does the following steps:</span>
 
 <span class="sd">        1. Computes embeddings and predictions for the patches using the specified backbone and model.</span>
@@ -1499,7 +1559,8 @@
     <span class="n">val_dataloader</span> <span class="o">=</span> <span class="n">geo_DataLoader</span><span class="p">(</span><span class="n">val_graphs</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span>
     <span class="n">test_dataloader</span> <span class="o">=</span> <span class="n">geo_DataLoader</span><span class="p">(</span><span class="n">test_graphs</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">batch_size</span><span class="p">,</span> <span class="n">shuffle</span><span class="o">=</span><span class="n">shuffle</span><span class="p">)</span> <span class="k">if</span> <span class="n">test_graphs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="kc">None</span>
 
-    <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span>
+    <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span></div>
+
 </pre></div>
 
            </div>

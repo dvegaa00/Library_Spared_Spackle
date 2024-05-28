@@ -21,15 +21,18 @@ import random
 
 # Funciones separadas para visualización
 def refine_plotting_slides_str(split_names: dict, collection: ad.AnnData, slide_list: str) -> str:
-    """
+    """ Assure plotting slides are on the dataset.
+
     This function refines the plotting slides string to assure all slides are on the dataset. It works in the following way:
+
     1. If all slides are in the dataset it does nothing and returns the same slide_list parameter.
     2. If any slide is missing in the dataset of slide_list=='None' then it does one of 2 things:
+
         a. If the dataset has 4 or less slides all slides are set as plotting slides
         b. If the dataset has more than 4 slides it iterates over splits (train/val/test) and choses a single slide at a time without replacement. 
 
     Args:
-        spli_names: dictionary containing split names
+        split_names: dictionary containing split names
         collection (ad.AnnData): Processed and filtered data ready to use by the model.
         slide_list (str): String with a list of slides separated by commas.
 
@@ -81,7 +84,8 @@ def refine_plotting_slides_str(split_names: dict, collection: ad.AnnData, slide_
     return slide_list
 
 def get_plotting_slides_adata(collection: ad.AnnData, slide_list: str) -> list:
-    """
+    """ Get list of adatas to plot
+
     This function receives a string with a list of slides separated by commas and returns a list of anndata objects with
     the specified slides taken from the collection parameter. 
 
@@ -108,7 +112,8 @@ def get_plotting_slides_adata(collection: ad.AnnData, slide_list: str) -> list:
     return s_adata_list
 
 def plot_all_slides(dataset: str, processed_adata: ad.AnnData, path: str) -> None:
-    """
+    """ Plot all the whole slide images
+
     This function takes a slide collection and plot all the whole slide images in a square aspect ratio.
 
     Args:
@@ -144,8 +149,10 @@ def plot_all_slides(dataset: str, processed_adata: ad.AnnData, path: str) -> Non
     fig.savefig(path, dpi=300)
     plt.close()
 
+# FIXME: Why is this here and why aren't we using the processing one?
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
+    """ Get expression fraction for each gene
+
     This function computes the expression fraction for each gene in the dataset. Internally it gets the
     expression fraction for each slide and then takes the minimum across all the slides.
     """
@@ -172,9 +179,11 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
 
     # Return the adata
     return adata
-        
+
+# FIXME: Why is this here and why aren't we using the processing one?
 def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
+    """ Get global expression fraction for each gene
+
     This function computes the global expression fraction for each gene in the dataset.
 
     Args:
@@ -193,7 +202,8 @@ def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     return adata
 
 def plot_exp_frac(param_dict: dict, dataset: str, raw_adata: ad.AnnData, path: str) -> None:
-    """
+    """ Plot heatmap of expression fraction
+
     This function plots a heatmap of the expression fraction and global expression fraction for the complete collection of slides.
 
     Args:
@@ -259,8 +269,11 @@ def plot_exp_frac(param_dict: dict, dataset: str, raw_adata: ad.AnnData, path: s
     mpl.rcParams.update(mpl.rcParamsDefault)
 
 ### Define function to get the expression fraction
+
+# FIXME: What the fuck is happening with this function
 def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
-    """
+    """ Get expression fraction for each gene
+
     This function computes the expression fraction for each gene in the dataset. Internally it gets the
     expression fraction for each slide and then takes the minimum across all the slides.
     """
@@ -289,7 +302,8 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     return adata
     
 def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: str) -> None:
-    """
+    """ Plot filtering histograms
+
     This function plots a figure that analyses the effect of the filtering over the data.
     The first row corresponds to the raw data (which has patches and excludes constant genes) and the second row
     plots the filtered and processed data. Histograms of total:
@@ -374,7 +388,8 @@ def plot_histograms(processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: st
     plt.close()
 
 def plot_random_patches(dataset: str, processed_adata: ad.AnnData, path: str, patch_scale: float = 1.0, patch_size: int = 224) -> None:
-    """
+    """ Plot random set of patches
+
     This function gets 16 flat random patches (with the specified dims) from the processed adata objects. It
     reshapes them to a bidimensional form and shows them. The plot is saved to the specified path.
 
@@ -409,7 +424,8 @@ def plot_random_patches(dataset: str, processed_adata: ad.AnnData, path: str, pa
     plt.close()
 
 def visualize_moran_filtering(param_dict: dict, processed_adata: ad.AnnData, from_layer: str, path: str, top: bool = True) -> None:
-    """
+    """ Plot the most or least auto-correlated genes
+
     This function visualizes the spatial expression of the 4 most and least auto-correlated genes in processed_adata.
     The title of each subplot shows the value of the moran I statistic for a given gene. The plot is saved to the specified
     path. This plot uses the slide list in string format in param_dict['plotting_slides']to plot these specific observations.
@@ -490,7 +506,8 @@ def visualize_moran_filtering(param_dict: dict, processed_adata: ad.AnnData, fro
     plt.close()
 
 def visualize_gene_expression(param_dict: dict, processed_adata: ad.AnnData, from_layer: str, path: str) -> None:
-    """
+    """ Plot specific gene expression
+
     This function selects the genes specified in param_dict['plotting_genes'] and param_dict['plotting_slides']
     to plot gene expression for the specified genes in the specified slides. If either of them is 'None', then the method
     chooses randomly (4 genes or 4 slides in the stnet_dataset or 2 slides in visium datasets). The data is plotted from
@@ -569,7 +586,8 @@ def visualize_gene_expression(param_dict: dict, processed_adata: ad.AnnData, fro
 
 ### Define function to get dimensionality reductions depending on the layer
 def compute_dim_red(adata: ad.AnnData, from_layer: str) -> ad.AnnData:
-    """
+    """ Compute embeddings and clusters
+
     Simple wrapper around sc.pp.pca, sc.pp.neighbors, sc.tl.umap and sc.tl.leiden to compute the embeddings and cluster the data.
     Everything will be computed using the expression matrix stored in adata.layers[from_layer]. 
 
@@ -606,7 +624,8 @@ def compute_dim_red(adata: ad.AnnData, from_layer: str) -> ad.AnnData:
     return adata_copy
 
 def plot_clusters(dataset: str, param_dict: dict, processed_adata: ad.AnnData, from_layer: str, path: str) -> None:
-    """
+    """ Plot clusters spatially
+
     This function generates a plot that visualizes Leiden clusters spatially in the slides in param_dict['plotting_slides'].
     The slides can be specified in param_dict['plotting_slides'] or chosen randomly.
     
@@ -712,7 +731,8 @@ def plot_clusters(dataset: str, param_dict: dict, processed_adata: ad.AnnData, f
     plt.close(fig)
 
 def plot_mean_std(dataset: str, processed_adata: ad.AnnData, raw_adata: ad.AnnData, path: str) -> None:
-    """
+    """ Plot mean and std of all genes
+
     This function plots a scatter of mean and standard deviation of genes present in raw_adata (black) and all the layers with non-zero
     mean in processed_adata. It is used to see the effect of filtering and processing in the genes. The plot is saved to the specified path.
 
@@ -754,7 +774,8 @@ def plot_mean_std(dataset: str, processed_adata: ad.AnnData, raw_adata: ad.AnnDa
     plt.close()
 
 def plot_data_distribution_stats(dataset: str, processed_adata: ad.AnnData, path:str):
-    """
+    """ Plot dataset's general stats
+
     This function plots a pie chart and bar plots of the distribution of spots and slides in the dataset split.
 
     Args:
@@ -810,7 +831,8 @@ def plot_data_distribution_stats(dataset: str, processed_adata: ad.AnnData, path
     plt.close()
 
 def plot_mean_std_partitions(dataset: str, processed_adata: ad.AnnData, from_layer: str, path: str) -> None:
-    """
+    """ Plot mean and std of genes by data split
+
     This function plots a scatter of mean and standard deviation of genes present in processed_adata drawing with a different color different data
     splits (train/val/test). This is all done for the specified layer in the from_layer parameter. This function is used to see how tractable is
     the task. The plot is saved to the specified path.
@@ -842,7 +864,8 @@ def plot_mean_std_partitions(dataset: str, processed_adata: ad.AnnData, from_lay
     plt.close()
 
 def plot_tests(patch_scale: float, patch_size: int, dataset: str, split_names: dict, param_dict: dict, dataset_path: str, processed_adata: ad.AnnData, raw_adata: ad.AnnData)->None:
-    """
+    """ Plot all quality control plots
+
     This function calls all the plotting functions in the class to create 6 quality control plots to check if the processing step of
     the dataset is performed correctly. The results are saved in dataset_logs folder and indexed by date and time. A dictionary
     in json format with all the dataset parameters is saved in the same log folder for reproducibility. Finally, a txt with the names of the
