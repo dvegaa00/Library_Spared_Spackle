@@ -88,11 +88,7 @@ html.writer-html5 .rst-content dl[class]:not(.option-list):not(.field-list):not(
     background: #FFD8338F;
 }
 
-/* the other elements, but more specific - leave them be */
-code.docutils.literal.notranslate > span[class="pre"] {
-    font-weight: bold;
-    color: #404040;
-}
+
 
 /* odd rows in API */
 .rst-content table.docutils:not(.field-list) tr:nth-child(2n-1) td {
