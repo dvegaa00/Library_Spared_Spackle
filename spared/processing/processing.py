@@ -396,21 +396,19 @@ def log1p_transformation(adata: ad.AnnData, from_layer: str, to_layer: str) -> a
     # Return the transformed AnnData object
     return adata
 
-# FIXME: CHeck this is adequately included in documentation
 ### Define function to get spatial neighbors in an AnnData object
 def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) -> dict:
     """ Compute neighbors dictionary for an AnnData object.
     
-    This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
-    a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
-    and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-    inside an n_hops neighborhood (vicinity) of the observation.
+    The neighbors are computed according to topological distances over a graph defined by the ``hex_geometry`` connectivity.
+    The neighbors dictionary is a dictionary where the keys are the indexes of the observations and the values are lists
+    of the indexes of the neighbors of each observation. The neighbors include the observation itself as the firs element of the
+    list and are found inside an ``n_hops`` neighborhood (vicinity) of the observation.
 
     Args:
         adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
         n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                true for visium datasets.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If ``False``, then the graph is a grid. Only ``True`` for Visium datasets.
 
     Returns:
         dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.
@@ -795,11 +793,12 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
 # TODO: When cheking this function on its own, try using a prediction layer "delta"
 def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
     """ Add an artificial noisy layer.
-    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of 'noisy_d'
-    or 'noisy' depending on the prediction layer. The noisy layer is created by returning the missing values to an already denoised layer of the adata.
-    In the case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to the missing values. In the case the source
-    layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values. missing values are specified by
-    the binary ada.layers['mask'] layer.
+
+    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the data which is created by re-inserting missing values to
+    a previously denoised layer of the ``adata`` object. In case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to
+    the missing values. In case the source layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values.
+    The originally missing values must be specified by the binary ``adata.layers['mask']`` layer. The name of the added layer will be ``'noisy_d'`` if the prediction
+    layer is an expression delta and ``noisy`` otherwise. The gene means used to compute the deltas are stored in the ``adata.var[f"{prediction_layer}_avg_exp"]`` column.
 
     Args:
         adata (ad.AnnData): The AnnData object to update. Must have the prediction layer, the gene means if its a delta layer, and the mask layer.
@@ -808,6 +807,7 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
     Returns:
         ad.AnnData: The updated AnnData object with the noisy layer added.
     """
+    # FIXME: The second statement of the if is weird
     if 'delta' in prediction_layer or 'noisy_d' in prediction_layer:
     # FIXME: make it flexible for other prediction layers different to c_d_log1p (DONE)
         # Get vector with gene means
@@ -848,43 +848,45 @@ def add_noisy_layer(adata: ad.AnnData, prediction_layer: str) -> ad.AnnData:
 # FIXME: Maybe the organism should be a key of the param_dict (DONE)
 # FIXME: Hex geometry should also be inside the param_dict (How do I define this for every dataset?) --> True siempre
 # TODO: Fix documentation when the above fixmes are solved.
+# TODO: If we add noisy layers here add them to the documentation
 def process_dataset(adata: ad.AnnData, param_dict: dict, hex_geometry: bool = True) -> ad.AnnData:
     """ Perform complete processing pipeline.
-    This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
-    (adata.X). The processing pipeline is the following:
 
-        1. Normalize the data with tpm normalization (tpm layer)
-        2. Transform the data with log1p (log1p layer)
-        3. Denoise the data with the adaptive median filter (d_log1p layer)
-        4. Compute moran I for each gene in each slide and average moranI across slides (add results to .var['d_log1p_moran'])
-        5. Filter dataset to keep the top param_dict['top_moran_genes'] genes with highest moran I.
-        6. Perform ComBat batch correction if specified by the 'combat_key' parameter (c_d_log1p layer)
-        7. Compute the deltas from the mean for each gene (computed from log1p, d_log1p and c_log1p, c_d_log1p layer if batch correction was performed)
-        8. Add a binary mask layer specifying valid observations for metric computation (mask layer, True for valid observations, False for missing values).
+    This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset
+    (``adata.X``). The processing pipeline is the following:
+
+        1. Normalize the data with tpm normalization (``adata.layers['tpm']``)
+        2. Transform the data with log1p (``adata.layers['log1p']``)
+        3. Denoise the data with the adaptive median filter (``adata.layers['d_log1p']``)
+        4. Compute moran I for each gene in each slide and average moranI across slides (add results to ``adata.var['d_log1p_moran']``)
+        5. Filter dataset to keep the top ``param_dict['top_moran_genes']`` genes with highest moran I.
+        6. Perform ComBat batch correction if specified by the ``param_dict['combat_key']`` (``adata.layers['c_d_log1p']``)
+        7. Compute the deltas from the mean for each gene (computed from ``'log1p'``, ``'d_log1p'`` and ``'c_log1p'``, ``'c_d_log1p'`` layers)
+        8. Add a binary mask layer specifying valid observations for metric computation (``adata.layers['mask']`` layer, ``True`` for valid observations, ``False`` for missing values).
 
     Args:
-        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the filter_dataset() function.
+        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the ``filter_dataset()`` function.
         param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:
 
-                            - 'top_moran_genes': (int) The number of genes to keep after filtering by Moran's I. If set to 0, then the number of genes is internally computed.
-                            - 'combat_key': (str) The column in adata.obs that defines the batches for ComBat batch correction. If set to 'None', then no batch correction is performed.
+                            - ``'top_moran_genes'`` **(int)**: The number of genes to keep after filtering by Moran's I. If set to ``0``, then the number of genes is internally computed.
+                            - ``'combat_key'`` **(str)**: The column in ``adata.obs`` that defines the batches for ComBat batch correction. If set to ``'None'``, then no batch correction is performed.
         
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.
+        hex_geometry (bool): Whether the graph is hexagonal or not. If ``False``, then the graph is a grid. Only ``True`` for Visium datasets.
 
     Returns:
-        ad.Anndata: The processed AnnData object with all the layers and results added. A list of includded layers in adata.layers is:
+        ad.Anndata: The processed AnnData object with all the layers and results added. A list of included layers in ``adata.layers`` is:
 
-                    - 'counts': Raw counts of the dataset.
-                    - 'tpm': TPM normalized data.
-                    - 'log1p': Log1p transformed data (base 2.0).
-                    - 'd_log1p': Denoised data with adaptive median filter.
-                    - 'c_log1p': Batch corrected data with ComBat (only if combat_key is not 'None').
-                    - 'c_d_log1p': Batch corrected and denoised data with adaptive median filter (only if combat_key is not 'None').
-                    - 'deltas': Deltas from the mean expression for log1p.
-                    - 'd_deltas': Deltas from the mean expression for d_log1p.
-                    - 'c_deltas': Deltas from the mean expression for c_log1p (only if combat_key is not 'None').
-                    - 'c_d_deltas': Deltas from the mean expression for c_d_log1p (only if combat_key is not 'None').
-                    - 'mask': Binary mask layer. True for valid observations, False for imputed missing values.
+                    - ``'counts'``: Raw counts of the dataset.
+                    - ``'tpm'``: TPM normalized data.
+                    - ``'log1p'``: Log1p transformed data (base 2).
+                    - ``'d_log1p'``: Denoised data with adaptive median filter.
+                    - ``'c_log1p'``: Batch corrected data with ComBat (only if ``combat_key`` is not ``'None'``).
+                    - ``'c_d_log1p'``: Batch corrected and denoised data with adaptive median filter (only if ``combat_key`` is not ``'None'``).
+                    - ``'deltas'``: Deltas from the mean expression for ``log1p``.
+                    - ``'d_deltas'``: Deltas from the mean expression for ``d_log1p``.
+                    - ``'c_deltas'``: Deltas from the mean expression for ``c_log1p`` (only if ``combat_key`` is not ``'None'``).
+                    - ``'c_d_deltas'``: Deltas from the mean expression for ``c_d_log1p`` (only if ``combat_key`` is not ``'None'``).
+                    - ``'mask'``: Binary mask layer. ``True`` for valid observations, ``False`` for imputed missing values.
     """
 
     ### Compute all the processing steps

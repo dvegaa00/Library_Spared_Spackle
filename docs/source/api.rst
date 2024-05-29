@@ -21,6 +21,7 @@ Processing
     processing.filter_dataset
     processing.tpm_normalization
     processing.log1p_transformation
+    processing.get_spatial_neighbors
     processing.clean_noise
     processing.combat_transformation
     processing.get_deltas

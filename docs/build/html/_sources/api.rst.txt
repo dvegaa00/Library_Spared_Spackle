@@ -21,6 +21,7 @@ Processing
     processing.filter_dataset
     processing.tpm_normalization
     processing.log1p_transformation
+    processing.get_spatial_neighbors
     processing.clean_noise
     processing.combat_transformation
     processing.get_deltas
@@ -60,7 +61,6 @@ Plotting
     visualize.get_exp_frac
     visualize.get_glob_exp_frac
     visualize.plot_exp_frac
-    visualize.get_exp_frac
     visualize.plot_histograms
     visualize.plot_random_patches
     visualize.visualize_moran_filtering

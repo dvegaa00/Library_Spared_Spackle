@@ -8,6 +8,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=80ec6151" />
 
   
   <!--[if lt IE 9]>
@@ -38,6 +39,7 @@
           
           <a href="../index.html" class="icon icon-home">
             SpaRED
+              <img src="../_static/spared_logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -58,6 +60,7 @@
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.filter_dataset.html">spared.processing.filter_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.tpm_normalization.html">spared.processing.tpm_normalization</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.log1p_transformation.html">spared.processing.log1p_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_spatial_neighbors.html">spared.processing.get_spatial_neighbors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.clean_noise.html">spared.processing.clean_noise</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.combat_transformation.html">spared.processing.combat_transformation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.get_deltas.html">spared.processing.get_deltas</a></li>
@@ -111,9 +114,9 @@
 <h1>spared.processing.compute_patches_embeddings_and_predictions<a class="headerlink" href="#spared-processing-compute-patches-embeddings-and-predictions" title="Link to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="spared.processing.compute_patches_embeddings_and_predictions">
-<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">compute_patches_embeddings_and_predictions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backbone</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'densenet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">224</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_scale</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">float</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#compute_patches_embeddings_and_predictions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.compute_patches_embeddings_and_predictions" title="Link to this definition"></a></dt>
-<dd><p>Compute embeddings or predictions for patches.
-This function computes embeddings or predictions for a given backbone model and adata object. It can optionally
+<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">compute_patches_embeddings_and_predictions</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">backbone</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'densenet'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'None'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">preds</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">patch_size</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">224</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">None</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#compute_patches_embeddings_and_predictions"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.compute_patches_embeddings_and_predictions" title="Link to this definition"></a></dt>
+<dd><p>Compute embeddings or predictions for patches.</p>
+<p>This function computes embeddings or predictions for a given backbone model and adata object. It can optionally
 compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are
 stored in adata.obsm[f’embeddings_{backbone}’] or adata.obsm[f’predictions_{backbone}’] respectively. The patches
 must be stored in adata.obsm[f’patches_scale_{patch_scale}’] and must be of shape (n_patches, patch_size*patch_size*3).</p>
@@ -126,7 +129,6 @@ must be stored in adata.obsm[f’patches_scale_{patch_scale}’] and must be of 
 <li><p><strong>model_path</strong> (<em>str</em><em>, </em><em>optional</em>) – The path to a stored model. If set to ‘None’, then a pretrained model is used. Defaults to “None”.</p></li>
 <li><p><strong>preds</strong> (<em>bool</em><em>, </em><em>optional</em>) – True if predictions are to be computed, False if embeddings are to be computed. Defaults to True.</p></li>
 <li><p><strong>patch_size</strong> (<em>int</em><em>, </em><em>optional</em>) – The size of the patches. Defaults to 224.</p></li>
-<li><p><strong>patch_scale</strong> (<em>float</em><em>, </em><em>optional</em>) – The scale of the patches. Defaults to 1.0.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Raises<span class="colon">:</span></dt>
