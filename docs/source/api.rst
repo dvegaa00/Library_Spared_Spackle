@@ -60,7 +60,6 @@ Plotting
     visualize.get_exp_frac
     visualize.get_glob_exp_frac
     visualize.plot_exp_frac
-    visualize.get_exp_frac
     visualize.plot_histograms
     visualize.plot_random_patches
     visualize.visualize_moran_filtering
