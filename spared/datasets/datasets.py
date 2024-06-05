@@ -1,51 +1,20 @@
 import glob
-import scanpy as sc
 import anndata as ad
 import os
 os.environ['USE_PYGEOS'] = '0' # To supress a warning from geopandas
-import squidpy as sq
-import pandas as pd
-from tqdm import tqdm
-import numpy as np
-from anndata.experimental.pytorch import AnnLoader
-from sklearn.preprocessing import StandardScaler
 from PIL import Image
-import matplotlib
 import warnings
-import wandb
-import gzip
 import shutil
-import wget
-import subprocess
-from combat.pycombat import pycombat
-import torchvision.models as tmodels
-#from . import im_encoder
-#from . import metrics
 import torch.nn as nn
 import torch
-from torch.utils.data import DataLoader, Dataset
-from matplotlib import pyplot as plt
-import matplotlib as mpl
-import seaborn as sns
-from matplotlib.colors import LinearSegmentedColormap   
-import matplotlib.colors as colors
-from time import time
-from datetime import datetime
+from torch.utils.data import Dataset
+import numpy as np
 import json
 from torchvision.transforms import Normalize
 from typing import Tuple
-from torch_geometric.data import Data as geo_Data
-from torch_geometric.loader import DataLoader as geo_DataLoader
-from torch_geometric.utils import from_scipy_sparse_matrix
-from torchvision import transforms
 import torch
-from positional_encodings.torch_encodings import PositionalEncoding2D
 import argparse
-import gzip
-import plotly.express as px
 import pathlib
-from scipy.cluster import hierarchy
-import random
 import sys
 
 #El path a spared es ahora diferente
@@ -53,13 +22,14 @@ SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 
 #Agregar el directorio padre al sys.path para los imports
 sys.path.append(str(SPARED_PATH))
-#import im_encoder and metrics files
-from embeddings import im_encoder
-from metrics import metrics
 
+#TODO: AJUSTAR UNA VEZ ESTEN CREADOS LOS NUEVOS ARCHIVOS
 # Import visualization and processing function
-from visualize import visualize
-from processing import processing
+from filtering import filtering
+from layer_operations import layer_operations
+from dataloaders import dataloaders
+from plotting import plotting
+
 
 # Import all reader classes
 from readers.AbaloReader import AbaloReader
@@ -167,7 +137,7 @@ class SpatialDataset():
         self.dataset_path = self.reader_class.dataset_path
         
         # We load or compute the processed adata with patches.
-        self.adata, self.raw_adata = self.load_or_compute_adata()
+        self.adata = self.load_or_compute_adata()
 
     #villacampa_lung_organoid
     def initialize_reader(self):
@@ -275,10 +245,10 @@ class SpatialDataset():
             
             print('Computing main adata file from downloaded raw data...')
             collection_raw = self.reader_class.get_adata_collection()
-            collection_filtered = processing.filter_dataset(adata=collection_raw, param_dict=self.param_dict)
+            collection_filtered = filtering.filter_dataset(adata=collection_raw, param_dict=self.param_dict)
             # Process data
-            collection_processed = processing.process_dataset(
-                adata=collection_filtered, param_dict=self.param_dict, hex_geometry=self.hex_geometry)
+            collection_processed = layer_operations.process_dataset(
+                adata=collection_filtered, param_dict=self.param_dict)
 
             # Save the processed data
             os.makedirs(self.dataset_path, exist_ok=True)
@@ -287,14 +257,12 @@ class SpatialDataset():
 
             if self.visualize:
                 # QC plotting
-                visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                plotting.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
                 # Copy figures folder into public database
                 os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
                 if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
                     shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
                 shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
-                
-                # FIXME: what do i do with the README file? inside or outside the if?
                 # Create README for dataset
                 if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
                     shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
@@ -309,35 +277,23 @@ class SpatialDataset():
             print('The loaded adata object looks like this:')
             print(collection_processed)
 
-            # QC plotting if force plotting
-            force_plotting = False
-            if force_plotting:
+            # QC plotting if visualize is set to True
+            if self.visualize:
                 collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
-                
-                #FIXME: given that we are forcing plotting should I remove the conditional based on the parameter visualize?
-                if self.visualize:
-                    visualize.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
-                    # Copy figures folder into public database
-                    os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
-                    if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
-                        shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
-                    shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
-                    
-                    # FIXME: what do i do with the README file? inside or outside the if?
-                    # Create README for dataset
-                    if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
-                        shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
+                # QC plotting
+                plotting.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                # Copy figures folder into public database
+                os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
+                if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
+                    shutil.rmtree(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'))
+                shutil.copytree(os.path.join(self.dataset_path, 'qc_plots'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots'), dirs_exist_ok=True)
 
-        return collection_processed, collection_raw
-    
-    #TODO: Eliminar collection_raw del retorno y cambiar el parametro de retorno arriba en def ->
-    # IMPORT FROM PROCESSING -> def compute_patches_embeddings_and_predictions(self, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True) -> None:
-    # def compute_patches_embeddings_and_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="best_stnet.pt", preds: bool=True, patch_size: int = 224, patch_scale: float=1.0)
-    
-    # IMPORT FROM PROCESSING -> def get_graph_dataloaders(self, layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, shuffle: bool = True) -> Tuple[geo_DataLoader, geo_DataLoader, geo_DataLoader]:
-    # def get_graph_dataloaders(adata: ad.AnnData, dataset_path: str='', layer: str = 'c_d_log1p', n_hops: int = 2, backbone: str ='densenet', model_path: str = "best_stnet.pt", batch_size: int = 128, 
-                          # shuffle: bool = True, hex_geometry: bool=True, patch_size: int=224, patch_scale: float=1.0)
+                # Create README for dataset
+                if not os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md')):
+                    shutil.copy(os.path.join(SPARED_PATH, 'PublicDatabase', 'README_template.md'), os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'README.md'))
 
+        return collection_processed
+    
 class HisToGeneDataset(Dataset):
     def __init__(self, adata, set_str):
         self.set = set_str
@@ -422,9 +378,7 @@ def get_dataset(dataset_name: str, visualize: bool) -> SpatialDataset:
         visualize=visualize
     )
 
-    return dataset
-
-#TODO: parametro de visualización (True y False)   
+    return dataset   
 
 # Test code only for debugging
 if __name__ == "__main__":
@@ -509,7 +463,7 @@ if __name__ == "__main__":
             }
             layer = layer_dict[os.path.basename(os.path.normpath(args.graphs_ie_paths))]
             # Get the graphs
-            train_dl, val_dl, test_dl = processing.get_graph_dataloaders(
+            train_dl, val_dl, test_dl = dataloaders.get_graph_dataloaders(
                 adata=dataset.adata, dataset_path=dataset.dataset_path, layer=layer, n_hops=3, backbone='ViT', model_path=model_path, batch_size=256, shuffle=False,
                 hex_geometry=dataset.hex_geometry, patch_size=dataset.patch_size, patch_scale=dataset.patch_scale)
             

@@ -18,5 +18,6 @@
     "force_compute": false,
     "prediction_layer": "c_d_log1p",
     "n_hops": -1,
-    "organism": "human"
+    "organism": "human",
+    "hex_geometry": true
 }

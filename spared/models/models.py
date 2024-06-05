@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 from torchvision import models
 
-
-
 class ImageEncoder(torch.nn.Module):
     def __init__(self, backbone, use_pretrained,  latent_dim):
 
