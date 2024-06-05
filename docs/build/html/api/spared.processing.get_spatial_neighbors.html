@@ -4,7 +4,7 @@
   <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>spared.processing.get_slide_from_collection &mdash; SpaRED 0.1 documentation</title>
+  <title>spared.processing.get_spatial_neighbors &mdash; SpaRED 0.1 documentation</title>
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
@@ -25,8 +25,8 @@
     <script src="../_static/js/theme.js"></script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
-    <link rel="next" title="spared.processing.get_exp_frac" href="spared.processing.get_exp_frac.html" />
-    <link rel="prev" title="API" href="../api.html" /> 
+    <link rel="next" title="spared.processing.clean_noise" href="spared.processing.clean_noise.html" />
+    <link rel="prev" title="spared.processing.log1p_transformation" href="spared.processing.log1p_transformation.html" /> 
 </head>
 
 <body class="wy-body-for-nav"> 
@@ -54,16 +54,16 @@
 <li class="toctree-l1"><a class="reference internal" href="../installation.html">Installation</a></li>
 <li class="toctree-l1 current"><a class="reference internal" href="../api.html">API</a><ul class="current">
 <li class="toctree-l2 current"><a class="reference internal" href="../api.html#module-spared.processing">Processing</a><ul class="current">
-<li class="toctree-l3 current"><a class="current reference internal" href="#">spared.processing.get_slide_from_collection</a><ul>
-<li class="toctree-l4"><a class="reference internal" href="#spared.processing.get_slide_from_collection"><code class="docutils literal notranslate"><span class="pre">get_slide_from_collection()</span></code></a></li>
-</ul>
-</li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_slide_from_collection.html">spared.processing.get_slide_from_collection</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.get_exp_frac.html">spared.processing.get_exp_frac</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.get_glob_exp_frac.html">spared.processing.get_glob_exp_frac</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.filter_dataset.html">spared.processing.filter_dataset</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.tpm_normalization.html">spared.processing.tpm_normalization</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.log1p_transformation.html">spared.processing.log1p_transformation</a></li>
-<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_spatial_neighbors.html">spared.processing.get_spatial_neighbors</a></li>
+<li class="toctree-l3 current"><a class="current reference internal" href="#">spared.processing.get_spatial_neighbors</a><ul>
+<li class="toctree-l4"><a class="reference internal" href="#spared.processing.get_spatial_neighbors"><code class="docutils literal notranslate"><span class="pre">get_spatial_neighbors()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.clean_noise.html">spared.processing.clean_noise</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.combat_transformation.html">spared.processing.combat_transformation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.get_deltas.html">spared.processing.get_deltas</a></li>
@@ -100,9 +100,9 @@
   <ul class="wy-breadcrumbs">
       <li><a href="../index.html" class="icon icon-home" aria-label="Home"></a></li>
           <li class="breadcrumb-item"><a href="../api.html">API</a></li>
-      <li class="breadcrumb-item active">spared.processing.get_slide_from_collection</li>
+      <li class="breadcrumb-item active">spared.processing.get_spatial_neighbors</li>
       <li class="wy-breadcrumbs-aside">
-            <a href="../_sources/api/spared.processing.get_slide_from_collection.rst.txt" rel="nofollow"> View page source</a>
+            <a href="../_sources/api/spared.processing.get_spatial_neighbors.rst.txt" rel="nofollow"> View page source</a>
       </li>
   </ul>
   <hr/>
@@ -110,26 +110,29 @@
           <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
            <div itemprop="articleBody">
              
-  <section id="spared-processing-get-slide-from-collection">
-<h1>spared.processing.get_slide_from_collection<a class="headerlink" href="#spared-processing-get-slide-from-collection" title="Link to this heading"></a></h1>
+  <section id="spared-processing-get-spatial-neighbors">
+<h1>spared.processing.get_spatial_neighbors<a class="headerlink" href="#spared-processing-get-spatial-neighbors" title="Link to this heading"></a></h1>
 <dl class="py function">
-<dt class="sig sig-object py" id="spared.processing.get_slide_from_collection">
-<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">get_slide_from_collection</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">collection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">slide</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnData</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#get_slide_from_collection"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.get_slide_from_collection" title="Link to this definition"></a></dt>
-<dd><p>Retrieve a slide from a collection of slides.</p>
-<p>This function receives a slide name and returns an AnnData object of the specified slide based on the collection of slides
-in the collection parameter.</p>
+<dt class="sig sig-object py" id="spared.processing.get_spatial_neighbors">
+<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">get_spatial_neighbors</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_hops</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">int</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">hex_geometry</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">bool</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">dict</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#get_spatial_neighbors"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.get_spatial_neighbors" title="Link to this definition"></a></dt>
+<dd><p>Compute neighbors dictionary for an AnnData object.</p>
+<p>The neighbors are computed according to topological distances over a graph defined by the <code class="docutils literal notranslate"><span class="pre">hex_geometry</span></code> connectivity.
+The neighbors dictionary is a dictionary where the keys are the indexes of the observations and the values are lists
+of the indexes of the neighbors of each observation. The neighbors include the observation itself as the firs element of the
+list and are found inside an <code class="docutils literal notranslate"><span class="pre">n_hops</span></code> neighborhood (vicinity) of the observation.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>collection</strong> (<em>ad.AnnData</em>) – AnnData object with all the slides concatenated.</p></li>
-<li><p><strong>slide</strong> (<em>str</em>) – Name of the slide to get from the collection. Must be in the <code class="docutils literal notranslate"><span class="pre">slide_id</span></code> column of the <code class="docutils literal notranslate"><span class="pre">collection.obs</span></code> dataframe.</p></li>
+<li><p><strong>adata</strong> (<em>ad.AnnData</em>) – The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.</p></li>
+<li><p><strong>n_hops</strong> (<em>int</em>) – The size of the neighborhood to take into account to compute the neighbors.</p></li>
+<li><p><strong>hex_geometry</strong> (<em>bool</em>) – Whether the graph is hexagonal or not. If <code class="docutils literal notranslate"><span class="pre">False</span></code>, then the graph is a grid. Only <code class="docutils literal notranslate"><span class="pre">True</span></code> for Visium datasets.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns<span class="colon">:</span></dt>
-<dd class="field-even"><p>An AnnData object with the specified slide.</p>
+<dd class="field-even"><p>The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.</p>
 </dd>
 <dt class="field-odd">Return type<span class="colon">:</span></dt>
-<dd class="field-odd"><p>ad.AnnData</p>
+<dd class="field-odd"><p>dict</p>
 </dd>
 </dl>
 </dd></dl>
@@ -140,8 +143,8 @@ in the collection parameter.</p>
            </div>
           </div>
           <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
-        <a href="../api.html" class="btn btn-neutral float-left" title="API" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
-        <a href="spared.processing.get_exp_frac.html" class="btn btn-neutral float-right" title="spared.processing.get_exp_frac" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+        <a href="spared.processing.log1p_transformation.html" class="btn btn-neutral float-left" title="spared.processing.log1p_transformation" accesskey="p" rel="prev"><span class="fa fa-arrow-circle-left" aria-hidden="true"></span> Previous</a>
+        <a href="spared.processing.clean_noise.html" class="btn btn-neutral float-right" title="spared.processing.clean_noise" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
     </div>
 
   <hr/>

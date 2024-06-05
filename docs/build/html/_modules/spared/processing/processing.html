@@ -7,6 +7,7 @@
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=f3fccb13" />
 
   
   <!--[if lt IE 9]>
@@ -35,6 +36,7 @@
           
           <a href="../../../index.html" class="icon icon-home">
             SpaRED
+              <img src="../../../_static/spared_logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -107,17 +109,18 @@
 <span class="kn">import</span> <span class="nn">sys</span>
 <span class="kn">from</span> <span class="nn">typing</span> <span class="kn">import</span> <span class="n">Tuple</span>
 
-<span class="c1"># FIXME: Remove comments in spanish</span>
+<span class="c1">#FIXME: Remove comments in spanish</span>
 
-<span class="c1">#Get the path of the spared database</span>
-<span class="c1">#SPARED_PATH = pathlib.Path(__file__).parent</span>
+<span class="kn">from</span> <span class="nn">torchvision</span> <span class="kn">import</span> <span class="n">transforms</span> 
+<span class="c1"># Get the path of the spared database</span>
+<span class="c1"># SPARED_PATH = pathlib.Path(__file__).parent</span>
 
-<span class="c1">#El path a spared es ahora diferente</span>
+<span class="c1"># El path a spared es ahora diferente</span>
 <span class="n">SPARED_PATH</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
 
-<span class="c1">#Agregar el directorio padre al sys.path para los imports</span>
+<span class="c1"># Agregar el directorio padre al sys.path para los imports</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">))</span>
-<span class="c1">#Import im_encoder.py file</span>
+<span class="c1"># Import im_encoder.py file</span>
 <span class="kn">from</span> <span class="nn">embeddings</span> <span class="kn">import</span> <span class="n">im_encoder</span>
 <span class="c1"># Remove the path from sys.path</span>
 <span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">))</span>
@@ -348,17 +351,17 @@
 <span class="c1"># FIXME: Put the organism as a parameter instead of in the name of the dataset</span>
 <div class="viewcode-block" id="tpm_normalization">
 <a class="viewcode-back" href="../../../api/spared.processing.tpm_normalization.html#spared.processing.tpm_normalization">[docs]</a>
-<span class="k">def</span> <span class="nf">tpm_normalization</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">tpm_normalization</span><span class="p">(</span><span class="n">organism</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Normalize expression using TPM normalization.</span>
 
 <span class="sd">    This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the ``.gtf`` annotation file.</span>
 <span class="sd">    The counts are taken from ``adata.layers[from_layer]`` and the results are stored in ``adata.layers[to_layer]``. It can perform the normalization</span>
 <span class="sd">    for `human &lt;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz&gt;`_ and `mouse</span>
 <span class="sd">    &lt;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz&gt;`_ reference genomes.</span>
-<span class="sd">    To specify which GTF annotation file should be used, the string parameter ``&#39;dataset&#39;`` must contain the substring ``&#39;mouse&#39;`` or ``&#39;human&#39;``.</span>
+<span class="sd">    To specify which GTF annotation file should be used, the string parameter ``&#39;organism&#39;`` must be ``&#39;mouse&#39;`` or ``&#39;human&#39;``.</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        dataset (str): The dataset name. Must contain the substring ``&#39;mouse&#39;`` or ``&#39;human&#39;`` to specify the reference genome.</span>
+<span class="sd">        organism (str): Organism of the dataset. Must be &#39;mouse&#39; or &#39;human&#39;.</span>
 <span class="sd">        adata (ad.Anndata): The Anndata object to normalize.</span>
 <span class="sd">        from_layer (str): The layer to take the counts from. The data in this layer should be in raw counts.</span>
 <span class="sd">        to_layer (str): The layer to store the results of the normalization.</span>
@@ -369,9 +372,9 @@
     <span class="c1"># Get the number of genes before filtering</span>
     <span class="n">initial_genes</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
 
-    <span class="c1"># Automatically download the gtf annotation file if it is not already downloaded</span>
+    <span class="c1"># Automatically download the human gtf annotation file if it is not already downloaded</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">,</span> <span class="s1">&#39;gencode.v43.basic.annotation.gtf.gz&#39;</span><span class="p">)):</span>
-        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Automatically downloading gtf annotation file...&#39;</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Automatically downloading human gtf annotation file...&#39;</span><span class="p">)</span>
         <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">wget</span><span class="o">.</span><span class="n">download</span><span class="p">(</span>
             <span class="s1">&#39;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz&#39;</span><span class="p">,</span>
@@ -386,7 +389,15 @@
             <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">gtf_path</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
                 <span class="n">shutil</span><span class="o">.</span><span class="n">copyfileobj</span><span class="p">(</span><span class="n">f_in</span><span class="p">,</span> <span class="n">f_out</span><span class="p">)</span>
 
-    <span class="c1"># FIXME: Set up automatic download of mouse gtf file</span>
+    <span class="c1"># FIXME: Set up automatic download of mouse gtf file (DONE)</span>
+    <span class="c1"># Automatically download the mouse gtf annotation file if it is not already downloaded</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">,</span> <span class="s1">&#39;gencode.vM33.basic.annotation.gtf.gz&#39;</span><span class="p">)):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Automatically downloading mouse gtf annotation file...&#39;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">wget</span><span class="o">.</span><span class="n">download</span><span class="p">(</span>
+            <span class="s1">&#39;https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz&#39;</span><span class="p">,</span>
+            <span class="n">out</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">,</span> <span class="s1">&#39;gencode.vM33.basic.annotation.gtf.gz&#39;</span><span class="p">))</span>
+    
     <span class="c1"># Define gtf mouse path</span>
     <span class="n">gtf_path_mouse</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">,</span> <span class="s1">&#39;data&#39;</span><span class="p">,</span> <span class="s1">&#39;annotations&#39;</span><span class="p">,</span> <span class="s1">&#39;gencode.vM33.basic.annotation.gtf&#39;</span><span class="p">)</span>
 
@@ -410,10 +421,12 @@
         <span class="n">subprocess</span><span class="o">.</span><span class="n">call</span><span class="p">(</span><span class="n">command_list</span><span class="p">)</span> 
 
     <span class="c1"># Upload the gene lengths</span>
-    <span class="k">if</span> <span class="s2">&quot;mouse&quot;</span> <span class="ow">in</span> <span class="n">dataset</span><span class="o">.</span><span class="n">lower</span><span class="p">():</span>
+    <span class="k">if</span> <span class="n">organism</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;mouse&quot;</span><span class="p">:</span>
         <span class="n">glength_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">gene_length_path_mouse</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;gene&#39;</span><span class="p">,</span> <span class="s1">&#39;merged&#39;</span><span class="p">])</span>
-    <span class="k">else</span><span class="p">:</span>
+    <span class="k">elif</span> <span class="n">organism</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="o">==</span> <span class="s2">&quot;human&quot;</span><span class="p">:</span>
         <span class="n">glength_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">gene_length_path</span><span class="p">,</span> <span class="n">delimiter</span><span class="o">=</span><span class="s1">&#39;</span><span class="se">\t</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">usecols</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;gene&#39;</span><span class="p">,</span> <span class="s1">&#39;merged&#39;</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">assert</span> <span class="s2">&quot;Organism not valid&quot;</span>
 
     <span class="c1"># For the gene column, remove the version number</span>
     <span class="n">glength_df</span><span class="p">[</span><span class="s1">&#39;gene&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">glength_df</span><span class="p">[</span><span class="s1">&#39;gene&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">str</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
@@ -480,6 +493,66 @@
     <span class="k">return</span> <span class="n">adata</span></div>
 
 
+<span class="c1">### Define function to get spatial neighbors in an AnnData object</span>
+<div class="viewcode-block" id="get_spatial_neighbors">
+<a class="viewcode-back" href="../../../api/spared.processing.get_spatial_neighbors.html#spared.processing.get_spatial_neighbors">[docs]</a>
+<span class="k">def</span> <span class="nf">get_spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute neighbors dictionary for an AnnData object.</span>
+<span class="sd">    </span>
+<span class="sd">    The neighbors are computed according to topological distances over a graph defined by the ``hex_geometry`` connectivity.</span>
+<span class="sd">    The neighbors dictionary is a dictionary where the keys are the indexes of the observations and the values are lists</span>
+<span class="sd">    of the indexes of the neighbors of each observation. The neighbors include the observation itself as the firs element of the</span>
+<span class="sd">    list and are found inside an ``n_hops`` neighborhood (vicinity) of the observation.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.</span>
+<span class="sd">        n_hops (int): The size of the neighborhood to take into account to compute the neighbors.</span>
+<span class="sd">        hex_geometry (bool): Whether the graph is hexagonal or not. If ``False``, then the graph is a grid. Only ``True`` for Visium datasets.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="c1"># Compute spatial_neighbors</span>
+    <span class="k">if</span> <span class="n">hex_geometry</span><span class="p">:</span>
+        <span class="n">sq</span><span class="o">.</span><span class="n">gr</span><span class="o">.</span><span class="n">spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">coord_type</span><span class="o">=</span><span class="s1">&#39;generic&#39;</span><span class="p">,</span> <span class="n">n_neighs</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span> <span class="c1"># Hexagonal visium case</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">sq</span><span class="o">.</span><span class="n">gr</span><span class="o">.</span><span class="n">spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">coord_type</span><span class="o">=</span><span class="s1">&#39;grid&#39;</span><span class="p">,</span> <span class="n">n_neighs</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Grid dataset case</span>
+
+    <span class="c1"># Get the adjacency matrix</span>
+    <span class="n">adj_matrix</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obsp</span><span class="p">[</span><span class="s1">&#39;spatial_connectivities&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Define power matrix</span>
+    <span class="n">power_matrix</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="c1"># Define the output matrix</span>
+    <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+    <span class="c1"># Iterate through the hops</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_hops</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># Compute the next hop</span>
+        <span class="n">power_matrix</span> <span class="o">=</span> <span class="n">power_matrix</span> <span class="o">*</span> <span class="n">adj_matrix</span>
+        <span class="c1"># Add the next hop to the output matrix</span>
+        <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">output_matrix</span> <span class="o">+</span> <span class="n">power_matrix</span>
+
+    <span class="c1"># Zero out the diagonal</span>
+    <span class="n">output_matrix</span><span class="o">.</span><span class="n">setdiag</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1"># Threshold the matrix to 0 and 1</span>
+    <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">output_matrix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+
+    <span class="c1"># Define neighbors dict</span>
+    <span class="n">neighbors_dict_index</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="c1"># Iterate through the rows of the output matrix</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">output_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
+        <span class="c1"># Get the non-zero elements of the row</span>
+        <span class="n">non_zero_elements</span> <span class="o">=</span> <span class="n">output_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
+        <span class="c1"># Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs</span>
+        <span class="n">neighbors_dict_index</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">non_zero_elements</span><span class="p">)</span>
+
+    <span class="c1"># Return the neighbors dict</span>
+    <span class="k">return</span> <span class="n">neighbors_dict_index</span></div>
+
+
 <div class="viewcode-block" id="clean_noise">
 <a class="viewcode-back" href="../../../api/spared.processing.clean_noise.html#spared.processing.clean_noise">[docs]</a>
 <span class="k">def</span> <span class="nf">clean_noise</span><span class="p">(</span><span class="n">collection</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
@@ -499,64 +572,6 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        ad.AnnData: New AnnData collection with the results of the adaptive median filter stored in the layer ``adata.layers[to_layer]``.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-    
-    <span class="c1"># FIXME: This function can be used alone. Think of getting it outside.</span>
-    <span class="c1">### Define function to get spatial neighbors in an AnnData object</span>
-    <span class="k">def</span> <span class="nf">get_spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over</span>
-<span class="sd">        a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations</span>
-<span class="sd">        and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found</span>
-<span class="sd">        inside an n_hops neighborhood (vicinity) of the observation.</span>
-
-<span class="sd">        Args:</span>
-<span class="sd">            adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.</span>
-<span class="sd">            n_hops (int): The size of the neighborhood to take into account to compute the neighbors.</span>
-<span class="sd">            hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only</span>
-<span class="sd">                                 true for visium datasets.</span>
-
-<span class="sd">        Returns:</span>
-<span class="sd">            dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
-        <span class="c1"># Compute spatial_neighbors</span>
-        <span class="k">if</span> <span class="n">hex_geometry</span><span class="p">:</span>
-            <span class="n">sq</span><span class="o">.</span><span class="n">gr</span><span class="o">.</span><span class="n">spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">coord_type</span><span class="o">=</span><span class="s1">&#39;generic&#39;</span><span class="p">,</span> <span class="n">n_neighs</span><span class="o">=</span><span class="mi">6</span><span class="p">)</span> <span class="c1"># Hexagonal visium case</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">sq</span><span class="o">.</span><span class="n">gr</span><span class="o">.</span><span class="n">spatial_neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">coord_type</span><span class="o">=</span><span class="s1">&#39;grid&#39;</span><span class="p">,</span> <span class="n">n_neighs</span><span class="o">=</span><span class="mi">8</span><span class="p">)</span> <span class="c1"># Grid dataset case</span>
-
-        <span class="c1"># Get the adjacency matrix</span>
-        <span class="n">adj_matrix</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obsp</span><span class="p">[</span><span class="s1">&#39;spatial_connectivities&#39;</span><span class="p">]</span>
-
-        <span class="c1"># Define power matrix</span>
-        <span class="n">power_matrix</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-        <span class="c1"># Define the output matrix</span>
-        <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">adj_matrix</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
-
-        <span class="c1"># Iterate through the hops</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_hops</span><span class="o">-</span><span class="mi">1</span><span class="p">):</span>
-            <span class="c1"># Compute the next hop</span>
-            <span class="n">power_matrix</span> <span class="o">=</span> <span class="n">power_matrix</span> <span class="o">*</span> <span class="n">adj_matrix</span>
-            <span class="c1"># Add the next hop to the output matrix</span>
-            <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">output_matrix</span> <span class="o">+</span> <span class="n">power_matrix</span>
-
-        <span class="c1"># Zero out the diagonal</span>
-        <span class="n">output_matrix</span><span class="o">.</span><span class="n">setdiag</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
-        <span class="c1"># Threshold the matrix to 0 and 1</span>
-        <span class="n">output_matrix</span> <span class="o">=</span> <span class="n">output_matrix</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">bool</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
-
-        <span class="c1"># Define neighbors dict</span>
-        <span class="n">neighbors_dict_index</span> <span class="o">=</span> <span class="p">{}</span>
-
-        <span class="c1"># Iterate through the rows of the output matrix</span>
-        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">output_matrix</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]):</span>
-            <span class="c1"># Get the non-zero elements of the row</span>
-            <span class="n">non_zero_elements</span> <span class="o">=</span> <span class="n">output_matrix</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">nonzero</span><span class="p">()[</span><span class="mi">1</span><span class="p">]</span>
-            <span class="c1"># Add the neighbors to the neighbors dicts. NOTE: the first index is the query obs</span>
-            <span class="n">neighbors_dict_index</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">non_zero_elements</span><span class="p">)</span>
-        
-        <span class="c1"># Return the neighbors dict</span>
-        <span class="k">return</span> <span class="n">neighbors_dict_index</span>
 
     <span class="c1">### Define cleaning function for single slide:</span>
     <span class="k">def</span> <span class="nf">adaptive_median_filter_pepper</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
@@ -835,7 +850,7 @@
     <span class="k">return</span> <span class="n">adata</span></div>
 
 
-<span class="c1"># TODO: Fix documentation when the internal fixme is solved</span>
+<span class="c1"># TODO: Fix documentation when the internal fixme is solved (VERIFICATION REQUIRED)</span>
 <div class="viewcode-block" id="filter_by_moran">
 <a class="viewcode-back" href="../../../api/spared.processing.filter_by_moran.html#spared.processing.filter_by_moran">[docs]</a>
 <span class="k">def</span> <span class="nf">filter_by_moran</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">n_keep</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">from_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
@@ -860,14 +875,18 @@
     <span class="c1"># Assert that the number of genes is at least n_keep</span>
     <span class="k">assert</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span> <span class="o">&gt;=</span> <span class="n">n_keep</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;The number of genes in the AnnData object is </span><span class="si">{</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="si">}</span><span class="s1">, which is less than n_keep (</span><span class="si">{</span><span class="n">n_keep</span><span class="si">}</span><span class="s1">).&#39;</span>
 
-    <span class="c1"># FIXME: This part is wierd, we can define a simple threshold without all the computation</span>
-    <span class="c1"># Select amount of top genes depending on the available amount if n_keep is not specified</span>
+    <span class="c1"># FIXME: This part is weird, we can define a simple threshold without all the computation</span>
+    <span class="c1"># Select amount of top genes depending on the available amount if n_keep is not specified (Verify: n_keep would be equal to n_vars?)</span>
+    <span class="c1"># threshold: (calcular el threshold segun np.abs(n_keep - 128) &gt; np.abs(n_keep - 32)) --&gt; 320</span>
     <span class="k">if</span> <span class="n">n_keep</span> <span class="o">&lt;=</span> <span class="mi">0</span><span class="p">:</span>
-        <span class="n">n_keep</span> <span class="o">=</span> <span class="nb">round</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span> <span class="o">*</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">n_keep</span> <span class="o">-</span> <span class="mi">128</span><span class="p">)</span> <span class="o">&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="n">n_keep</span> <span class="o">-</span> <span class="mi">32</span><span class="p">):</span>
-            <span class="n">n_keep</span> <span class="o">=</span> <span class="mi">32</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="n">n_keep</span> <span class="o">=</span> <span class="mi">128</span>
+        <span class="n">n_keep</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        n_keep = round(adata.n_vars * 0.25, 0)</span>
+<span class="sd">        if np.abs(n_keep - 128) &gt; np.abs(n_keep - 32):</span>
+<span class="sd">            n_keep = 32</span>
+<span class="sd">        else:</span>
+<span class="sd">            n_keep = 128</span>
+<span class="sd">        &quot;&quot;&quot;</span>
 
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Filtering genes by Moran&#39;s I. Keeping top </span><span class="si">{</span><span class="n">n_keep</span><span class="si">}</span><span class="s2"> genes.&quot;</span><span class="p">)</span>
     
@@ -884,17 +903,19 @@
     <span class="k">return</span> <span class="n">adata</span></div>
 
 
-
-<span class="c1"># TODO: Fix documentation when the internal fixme is solved. Another option is to put this function inside the initial preprocessing.</span>
+<span class="c1"># TODO: Fix documentation when the internal fixme is solved. (NOT NECESARRY) </span>
+<span class="c1"># Another option is to put this function inside the initial preprocessing.</span>
+<span class="c1"># TODO: When cheking this function on its own, try using a prediction layer &quot;delta&quot;</span>
 <div class="viewcode-block" id="add_noisy_layer">
 <a class="viewcode-back" href="../../../api/spared.processing.add_noisy_layer.html#spared.processing.add_noisy_layer">[docs]</a>
 <span class="k">def</span> <span class="nf">add_noisy_layer</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">prediction_layer</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Add an artificial noisy layer.</span>
-<span class="sd">    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the adata object by the name of &#39;noisy_d&#39;</span>
-<span class="sd">    or &#39;noisy&#39; depending on the prediction layer. The noisy layer is created by returning the missing values to an already denoised layer of the adata.</span>
-<span class="sd">    In the case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to the missing values. In the case the source</span>
-<span class="sd">    layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values. missing values are specified by</span>
-<span class="sd">    the binary ada.layers[&#39;mask&#39;] layer.</span>
+
+<span class="sd">    This function should only be used for experimentation/ablation purposes. It adds a noisy layer to the data which is created by re-inserting missing values to</span>
+<span class="sd">    a previously denoised layer of the ``adata`` object. In case the source layer is on logarithmic scale, the noisy layer is created by assigning zero values to</span>
+<span class="sd">    the missing values. In case the source layer is on delta scale, the noisy layer is created by assigning the negative mean of the gene to the missing values.</span>
+<span class="sd">    The originally missing values must be specified by the binary ``adata.layers[&#39;mask&#39;]`` layer. The name of the added layer will be ``&#39;noisy_d&#39;`` if the prediction</span>
+<span class="sd">    layer is an expression delta and ``noisy`` otherwise. The gene means used to compute the deltas are stored in the ``adata.var[f&quot;{prediction_layer}_avg_exp&quot;]`` column.</span>
 
 <span class="sd">    Args:</span>
 <span class="sd">        adata (ad.AnnData): The AnnData object to update. Must have the prediction layer, the gene means if its a delta layer, and the mask layer.</span>
@@ -903,23 +924,25 @@
 <span class="sd">    Returns:</span>
 <span class="sd">        ad.AnnData: The updated AnnData object with the noisy layer added.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># FIXME: The second statement of the if is weird</span>
     <span class="k">if</span> <span class="s1">&#39;delta&#39;</span> <span class="ow">in</span> <span class="n">prediction_layer</span> <span class="ow">or</span> <span class="s1">&#39;noisy_d&#39;</span> <span class="ow">in</span> <span class="n">prediction_layer</span><span class="p">:</span>
-    <span class="c1"># FIXME: make it flexible for other prediction layers different to c_d_log1p</span>
+    <span class="c1"># FIXME: make it flexible for other prediction layers different to c_d_log1p (DONE)</span>
         <span class="c1"># Get vector with gene means</span>
-        <span class="n">gene_means</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;c_d_log1p_avg_exp&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> 
+        <span class="n">gene_means</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">prediction_layer</span><span class="si">}</span><span class="s2">_avg_exp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span> 
         <span class="c1"># Expand gene means to the shape of the layer</span>
         <span class="n">gene_means</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">gene_means</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="o">-</span><span class="mi">1</span><span class="p">),</span> <span class="n">adata</span><span class="o">.</span><span class="n">n_obs</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
         <span class="c1"># Get valid mask</span>
         <span class="n">valid_mask</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span>
         <span class="c1"># Initialize noisy deltas</span>
         <span class="n">noisy_deltas</span> <span class="o">=</span> <span class="o">-</span><span class="n">gene_means</span> 
+        <span class="n">delta_key</span> <span class="o">=</span> <span class="n">prediction_layer</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;log1p&quot;</span><span class="p">)</span>
         <span class="c1"># Assign delta values in positions where valid mask is true</span>
-        <span class="n">noisy_deltas</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;c_d_deltas&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">]</span>
+        <span class="n">noisy_deltas</span><span class="p">[</span><span class="n">valid_mask</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">delta_key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s1">deltas&#39;</span><span class="p">][</span><span class="n">valid_mask</span><span class="p">]</span>
         <span class="c1"># Add the layer to the adata</span>
         <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;noisy_d&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">noisy_deltas</span>
 
         <span class="c1"># Add a var column of used means of the layer</span>
-        <span class="n">mean_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;c_d_log1p_avg_exp&#39;</span>
+        <span class="n">mean_key</span> <span class="o">=</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">prediction_layer</span><span class="si">}</span><span class="s1">_avg_exp&#39;</span>
         <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;used_mean&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="n">mean_key</span><span class="p">]</span>
 
     <span class="k">else</span><span class="p">:</span>
@@ -939,50 +962,51 @@
 
 
 <span class="c1"># FIXME: hex_geometry default set to True (?). Check if this is needed.</span>
-<span class="c1"># FIXME: Shouldn&#39;t dataset be inside the param_dict and not a parameter</span>
-<span class="c1"># FIXME: Maybe the organism should be a key of the param_dict</span>
-<span class="c1"># FIXME: Hex geometry should also be inside the param_dict</span>
+<span class="c1"># FIXME: Shouldn&#39;t dataset be inside the param_dict and not a parameter (DONE)</span>
+<span class="c1"># FIXME: Maybe the organism should be a key of the param_dict (DONE)</span>
+<span class="c1"># FIXME: Hex geometry should also be inside the param_dict (How do I define this for every dataset?) --&gt; True siempre</span>
 <span class="c1"># TODO: Fix documentation when the above fixmes are solved.</span>
+<span class="c1"># TODO: If we add noisy layers here add them to the documentation</span>
 <div class="viewcode-block" id="process_dataset">
 <a class="viewcode-back" href="../../../api/spared.processing.process_dataset.html#spared.processing.process_dataset">[docs]</a>
-<span class="k">def</span> <span class="nf">process_dataset</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">process_dataset</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">hex_geometry</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Perform complete processing pipeline.</span>
-<span class="sd">    This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset</span>
-<span class="sd">    (adata.X). The processing pipeline is the following:</span>
 
-<span class="sd">        1. Normalize the data with tpm normalization (tpm layer)</span>
-<span class="sd">        2. Transform the data with log1p (log1p layer)</span>
-<span class="sd">        3. Denoise the data with the adaptive median filter (d_log1p layer)</span>
-<span class="sd">        4. Compute moran I for each gene in each slide and average moranI across slides (add results to .var[&#39;d_log1p_moran&#39;])</span>
-<span class="sd">        5. Filter dataset to keep the top param_dict[&#39;top_moran_genes&#39;] genes with highest moran I.</span>
-<span class="sd">        6. Perform ComBat batch correction if specified by the &#39;combat_key&#39; parameter (c_d_log1p layer)</span>
-<span class="sd">        7. Compute the deltas from the mean for each gene (computed from log1p, d_log1p and c_log1p, c_d_log1p layer if batch correction was performed)</span>
-<span class="sd">        8. Add a binary mask layer specifying valid observations for metric computation (mask layer, True for valid observations, False for missing values).</span>
+<span class="sd">    This function performs the complete processing pipeline for a dataset. It only computes over the expression values of the dataset</span>
+<span class="sd">    (``adata.X``). The processing pipeline is the following:</span>
+
+<span class="sd">        1. Normalize the data with tpm normalization (``adata.layers[&#39;tpm&#39;]``)</span>
+<span class="sd">        2. Transform the data with log1p (``adata.layers[&#39;log1p&#39;]``)</span>
+<span class="sd">        3. Denoise the data with the adaptive median filter (``adata.layers[&#39;d_log1p&#39;]``)</span>
+<span class="sd">        4. Compute moran I for each gene in each slide and average moranI across slides (add results to ``adata.var[&#39;d_log1p_moran&#39;]``)</span>
+<span class="sd">        5. Filter dataset to keep the top ``param_dict[&#39;top_moran_genes&#39;]`` genes with highest moran I.</span>
+<span class="sd">        6. Perform ComBat batch correction if specified by the ``param_dict[&#39;combat_key&#39;]`` (``adata.layers[&#39;c_d_log1p&#39;]``)</span>
+<span class="sd">        7. Compute the deltas from the mean for each gene (computed from ``&#39;log1p&#39;``, ``&#39;d_log1p&#39;`` and ``&#39;c_log1p&#39;``, ``&#39;c_d_log1p&#39;`` layers)</span>
+<span class="sd">        8. Add a binary mask layer specifying valid observations for metric computation (``adata.layers[&#39;mask&#39;]`` layer, ``True`` for valid observations, ``False`` for missing values).</span>
 
 <span class="sd">    Args:</span>
-<span class="sd">        dataset (str): The dataset name. Must contain the substring &#39;mouse&#39; or &#39;human&#39; to specify the reference genome for TPM normalization.</span>
-<span class="sd">        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the filter_dataset() function.</span>
+<span class="sd">        adata (ad.AnnData): The AnnData object to process. Should be already filtered with the ``filter_dataset()`` function.</span>
 <span class="sd">        param_dict (dict): Dictionary that contains filtering and processing parameters. Keys that must be present are:</span>
 
-<span class="sd">                            - &#39;top_moran_genes&#39;: (int) The number of genes to keep after filtering by Moran&#39;s I. If set to 0, then the number of genes is internally computed.</span>
-<span class="sd">                            - &#39;combat_key&#39;: (str) The column in adata.obs that defines the batches for ComBat batch correction. If set to &#39;None&#39;, then no batch correction is performed.</span>
+<span class="sd">                            - ``&#39;top_moran_genes&#39;`` **(int)**: The number of genes to keep after filtering by Moran&#39;s I. If set to ``0``, then the number of genes is internally computed.</span>
+<span class="sd">                            - ``&#39;combat_key&#39;`` **(str)**: The column in ``adata.obs`` that defines the batches for ComBat batch correction. If set to ``&#39;None&#39;``, then no batch correction is performed.</span>
 <span class="sd">        </span>
-<span class="sd">        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only true for visium datasets.</span>
+<span class="sd">        hex_geometry (bool): Whether the graph is hexagonal or not. If ``False``, then the graph is a grid. Only ``True`` for Visium datasets.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        ad.Anndata: The processed AnnData object with all the layers and results added. A list of includded layers in adata.layers is:</span>
+<span class="sd">        ad.Anndata: The processed AnnData object with all the layers and results added. A list of included layers in ``adata.layers`` is:</span>
 
-<span class="sd">                    - &#39;counts&#39;: Raw counts of the dataset.</span>
-<span class="sd">                    - &#39;tpm&#39;: TPM normalized data.</span>
-<span class="sd">                    - &#39;log1p&#39;: Log1p transformed data (base 2.0).</span>
-<span class="sd">                    - &#39;d_log1p&#39;: Denoised data with adaptive median filter.</span>
-<span class="sd">                    - &#39;c_log1p&#39;: Batch corrected data with ComBat (only if combat_key is not &#39;None&#39;).</span>
-<span class="sd">                    - &#39;c_d_log1p&#39;: Batch corrected and denoised data with adaptive median filter (only if combat_key is not &#39;None&#39;).</span>
-<span class="sd">                    - &#39;deltas&#39;: Deltas from the mean expression for log1p.</span>
-<span class="sd">                    - &#39;d_deltas&#39;: Deltas from the mean expression for d_log1p.</span>
-<span class="sd">                    - &#39;c_deltas&#39;: Deltas from the mean expression for c_log1p (only if combat_key is not &#39;None&#39;).</span>
-<span class="sd">                    - &#39;c_d_deltas&#39;: Deltas from the mean expression for c_d_log1p (only if combat_key is not &#39;None&#39;).</span>
-<span class="sd">                    - &#39;mask&#39;: Binary mask layer. True for valid observations, False for imputed missing values.</span>
+<span class="sd">                    - ``&#39;counts&#39;``: Raw counts of the dataset.</span>
+<span class="sd">                    - ``&#39;tpm&#39;``: TPM normalized data.</span>
+<span class="sd">                    - ``&#39;log1p&#39;``: Log1p transformed data (base 2).</span>
+<span class="sd">                    - ``&#39;d_log1p&#39;``: Denoised data with adaptive median filter.</span>
+<span class="sd">                    - ``&#39;c_log1p&#39;``: Batch corrected data with ComBat (only if ``combat_key`` is not ``&#39;None&#39;``).</span>
+<span class="sd">                    - ``&#39;c_d_log1p&#39;``: Batch corrected and denoised data with adaptive median filter (only if ``combat_key`` is not ``&#39;None&#39;``).</span>
+<span class="sd">                    - ``&#39;deltas&#39;``: Deltas from the mean expression for ``log1p``.</span>
+<span class="sd">                    - ``&#39;d_deltas&#39;``: Deltas from the mean expression for ``d_log1p``.</span>
+<span class="sd">                    - ``&#39;c_deltas&#39;``: Deltas from the mean expression for ``c_log1p`` (only if ``combat_key`` is not ``&#39;None&#39;``).</span>
+<span class="sd">                    - ``&#39;c_d_deltas&#39;``: Deltas from the mean expression for ``c_d_log1p`` (only if ``combat_key`` is not ``&#39;None&#39;``).</span>
+<span class="sd">                    - ``&#39;mask&#39;``: Binary mask layer. ``True`` for valid observations, ``False`` for imputed missing values.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
     <span class="c1">### Compute all the processing steps</span>
@@ -997,7 +1021,7 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;counts&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
     
     <span class="c1"># 1. Make TPM normalization</span>
-    <span class="n">adata</span> <span class="o">=</span> <span class="n">tpm_normalization</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;counts&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;tpm&#39;</span><span class="p">)</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">tpm_normalization</span><span class="p">(</span><span class="n">param_dict</span><span class="p">[</span><span class="s2">&quot;organism&quot;</span><span class="p">],</span> <span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;counts&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;tpm&#39;</span><span class="p">)</span>
 
     <span class="c1"># 2. Transform the data with log1p (base 2.0)</span>
     <span class="n">adata</span> <span class="o">=</span> <span class="n">log1p_transformation</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;tpm&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;log1p&#39;</span><span class="p">)</span>
@@ -1019,12 +1043,14 @@
     <span class="c1"># 7. Compute deltas and mean expression for all log1p, d_log1p, c_log1p and c_d_log1p</span>
     <span class="n">adata</span> <span class="o">=</span> <span class="n">get_deltas</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;log1p&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;deltas&#39;</span><span class="p">)</span>
     <span class="n">adata</span> <span class="o">=</span> <span class="n">get_deltas</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;d_log1p&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;d_deltas&#39;</span><span class="p">)</span>
+    
     <span class="k">if</span> <span class="n">param_dict</span><span class="p">[</span><span class="s1">&#39;combat_key&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="s1">&#39;None&#39;</span><span class="p">:</span>
         <span class="n">adata</span> <span class="o">=</span> <span class="n">get_deltas</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;c_log1p&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;c_deltas&#39;</span><span class="p">)</span>
         <span class="n">adata</span> <span class="o">=</span> <span class="n">get_deltas</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="s1">&#39;c_d_log1p&#39;</span><span class="p">,</span> <span class="n">to_layer</span><span class="o">=</span><span class="s1">&#39;c_d_deltas&#39;</span><span class="p">)</span>
 
     <span class="c1"># 8. Add a binary mask layer specifying valid observations for metric computation</span>
     <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;mask&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s1">&#39;tpm&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="mi">0</span>
+    
     <span class="c1"># Print with the percentage of the dataset that was replaced</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Percentage of imputed observations with median filter: </span><span class="si">{:5.3f}</span><span class="s1">%&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="mi">100</span> <span class="o">*</span> <span class="p">(</span><span class="o">~</span><span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="s2">&quot;mask&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span> <span class="o">/</span> <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="o">*</span><span class="n">adata</span><span class="o">.</span><span class="n">n_obs</span><span class="p">)))</span>
 
@@ -1039,13 +1065,15 @@
 
 <span class="c1">### Patch processing function:</span>
 
-
-<span class="c1"># FIXME: keep patch_scale as parameter?</span>
-<span class="c1"># TODO: Fix documentation when the above fixme is solved.</span>
+<span class="c1"># FIXME: keep patch_scale as parameter? NOP</span>
+<span class="c1"># TODO: assert: que exista la escala</span>
+<span class="c1"># TODO: assert solo una llave que corresponda a patch_scale </span>
+<span class="c1"># TODO: Fix documentation when the above fixme is solved. (DONE)</span>
 <div class="viewcode-block" id="compute_patches_embeddings_and_predictions">
 <a class="viewcode-back" href="../../../api/spared.processing.compute_patches_embeddings_and_predictions.html#spared.processing.compute_patches_embeddings_and_predictions">[docs]</a>
-<span class="k">def</span> <span class="nf">compute_patches_embeddings_and_predictions</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;densenet&#39;</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span><span class="nb">str</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="n">preds</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">224</span><span class="p">,</span> <span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">compute_patches_embeddings_and_predictions</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;densenet&#39;</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span><span class="nb">str</span><span class="o">=</span><span class="s2">&quot;None&quot;</span><span class="p">,</span> <span class="n">preds</span><span class="p">:</span> <span class="nb">bool</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">224</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Compute embeddings or predictions for patches.</span>
+
 <span class="sd">    This function computes embeddings or predictions for a given backbone model and adata object. It can optionally</span>
 <span class="sd">    compute using a stored model in model_path or a pretrained model from pytorch. The embeddings or predictions are</span>
 <span class="sd">    stored in adata.obsm[f&#39;embeddings_{backbone}&#39;] or adata.obsm[f&#39;predictions_{backbone}&#39;] respectively. The patches</span>
@@ -1059,7 +1087,6 @@
 <span class="sd">        model_path (str, optional): The path to a stored model. If set to &#39;None&#39;, then a pretrained model is used. Defaults to &quot;None&quot;.</span>
 <span class="sd">        preds (bool, optional): True if predictions are to be computed, False if embeddings are to be computed. Defaults to True.</span>
 <span class="sd">        patch_size (int, optional): The size of the patches. Defaults to 224.</span>
-<span class="sd">        patch_scale (float, optional): The scale of the patches. Defaults to 1.0.</span>
 
 <span class="sd">    Raises:</span>
 <span class="sd">        ValueError: If the backbone is not supported.</span>
@@ -1069,7 +1096,7 @@
     <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
 
     <span class="c1"># Define the model</span>
-    <span class="n">model</span> <span class="o">=</span> <span class="n">im_encoder</span><span class="o">.</span><span class="n">ImageEncoder</span><span class="p">(</span><span class="n">backbone</span><span class="o">=</span><span class="n">backbone</span><span class="p">,</span> <span class="n">use_pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">latent_dim</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="p">)</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">im_encoder</span><span class="o">.</span><span class="n">ImageEncoder</span><span class="p">(</span><span class="n">backbone</span><span class="o">=</span><span class="n">backbone</span><span class="p">,</span> <span class="n">use_pretrained</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">latent_dim</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="p">,</span> <span class="n">patch_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">model_path</span> <span class="o">!=</span> <span class="s2">&quot;None&quot;</span><span class="p">:</span>
         <span class="n">saved_model</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">model_path</span><span class="p">)</span>
@@ -1143,6 +1170,7 @@
     <span class="n">preprocess</span> <span class="o">=</span> <span class="n">weights</span><span class="o">.</span><span class="n">transforms</span><span class="p">(</span><span class="n">antialias</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
     <span class="c1"># Get the patches</span>
+    <span class="n">patch_scale</span> <span class="o">=</span> <span class="mf">1.0</span>
     <span class="n">flat_patches</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;patches_scale_</span><span class="si">{</span><span class="n">patch_scale</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
 
     <span class="c1"># Reshape all the patches to the original shape</span>
@@ -1183,7 +1211,7 @@
 
 <span class="c1">### Adata dataloader building function:</span>
 
-<span class="c1"># TODO: Fix the internal fixme</span>
+<span class="c1"># TODO: Fix the internal fixme (DISCUSS AGAIN)</span>
 <div class="viewcode-block" id="get_pretrain_dataloaders">
 <a class="viewcode-back" href="../../../api/spared.processing.get_pretrain_dataloaders.html#spared.processing.get_pretrain_dataloaders">[docs]</a>
 <span class="k">def</span> <span class="nf">get_pretrain_dataloaders</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;c_d_log1p&#39;</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span> <span class="n">shuffle</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span> <span class="n">use_cuda</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">AnnLoader</span><span class="p">,</span> <span class="n">AnnLoader</span><span class="p">,</span> <span class="n">AnnLoader</span><span class="p">]:</span>
@@ -1208,8 +1236,10 @@
 
     <span class="c1">##### Addition to handle noisy training #####</span>
 
-    <span class="c1"># FIXME: Put this in a part of the complete processing pipeline instead of the dataloader function.</span>
+    <span class="c1"># FIXME: Put this in a part of the complete processing pipeline instead of the dataloader function. </span>
     <span class="c1"># Handle noisy training</span>
+    <span class="c1"># Add this function in procces_data function and automaticaaly generate noisy layers for this layers:</span>
+    <span class="c1"># c_d_log1p, c_t_log1p, c_d_deltas, c_t_deltas</span>
     <span class="n">adata</span> <span class="o">=</span> <span class="n">add_noisy_layer</span><span class="p">(</span><span class="n">adata</span><span class="o">=</span><span class="n">adata</span><span class="p">,</span> <span class="n">prediction_layer</span><span class="o">=</span><span class="n">layer</span><span class="p">)</span>
 
     <span class="c1"># Set the X of the adata to the layer casted to float32</span>
@@ -1239,7 +1269,8 @@
     <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span></div>
 
 
-
+<span class="c1"># funcion de complete with spackle para que queden las capas de transformers (REVISAR COMO HACER ESTO)</span>
+<span class="c1"># PARAMETROS SEGUN LO QUE FUNCIONÓ MEJOR PARA LA MAYORIA</span>
 <span class="c1">### Graph building functions:</span>
 
 <div class="viewcode-block" id="get_graphs_one_slide">
@@ -1450,7 +1481,7 @@
     <span class="k">return</span> <span class="n">graph_dict</span></div>
 
 
-<span class="c1"># TODO: Fix the internal fixme</span>
+<span class="c1"># TODO: Fix the internal fixme (DEPENDS ON THE PREVIOUS DISCUSSION)</span>
 <div class="viewcode-block" id="get_graph_dataloaders">
 <a class="viewcode-back" href="../../../api/spared.processing.get_graph_dataloaders.html#spared.processing.get_graph_dataloaders">[docs]</a>
 <span class="k">def</span> <span class="nf">get_graph_dataloaders</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">dataset_path</span><span class="p">:</span> <span class="nb">str</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">layer</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s1">&#39;c_t_log1p&#39;</span><span class="p">,</span> <span class="n">n_hops</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">backbone</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span><span class="s1">&#39;None&#39;</span><span class="p">,</span> <span class="n">model_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;best_stnet.pt&quot;</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span> 
@@ -1561,6 +1592,122 @@
 
     <span class="k">return</span> <span class="n">train_dataloader</span><span class="p">,</span> <span class="n">val_dataloader</span><span class="p">,</span> <span class="n">test_dataloader</span></div>
 
+
+<span class="c1"># Get the nearest neighbors dist and ids and add this information in the adata</span>
+<span class="k">def</span> <span class="nf">get_nn_images</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    
+    <span class="k">def</span> <span class="nf">get_nn_dist_and_ids_images</span><span class="p">(</span><span class="n">query_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">ref_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
+        
+        <span class="c1"># Get embeddings from query and ref as torch tensors</span>
+        <span class="n">query_embeddings</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">query_adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="s1">&#39;resnet50_embeddings&#39;</span><span class="p">])</span>
+        <span class="n">ref_embeddings</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">(</span><span class="n">ref_adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="s1">&#39;resnet50_embeddings&#39;</span><span class="p">])</span>
+
+        <span class="c1"># Compute euclidean distances from query to ref</span>
+        <span class="n">query_ref_distances</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cdist</span><span class="p">(</span><span class="n">query_embeddings</span><span class="p">,</span> <span class="n">ref_embeddings</span><span class="p">,</span> <span class="n">p</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+
+        <span class="c1"># Get the sorted distances and indexes</span>
+        <span class="n">sorted_distances</span><span class="p">,</span> <span class="n">sorted_indexes</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">query_ref_distances</span><span class="p">,</span> <span class="n">dim</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="c1"># Trim the sorted distances and indexes to 100 nearest neighbors and convert to numpy</span>
+        <span class="n">sorted_distances</span> <span class="o">=</span> <span class="n">sorted_distances</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">100</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+        <span class="n">sorted_indexes</span> <span class="o">=</span> <span class="n">sorted_indexes</span><span class="p">[:,</span> <span class="p">:</span><span class="mi">100</span><span class="p">]</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+
+        <span class="c1"># Get index vector in numpy (just to avoid warnings)</span>
+        <span class="n">index_vector</span> <span class="o">=</span> <span class="n">ref_adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span>
+
+        <span class="c1"># Get the ids of the 100 nearest neighbors</span>
+        <span class="n">sorted_ids</span> <span class="o">=</span> <span class="n">index_vector</span><span class="p">[</span><span class="n">sorted_indexes</span><span class="p">]</span>
+        
+        <span class="c1"># Make a dataframe with the distances and ids with the query index as index</span>
+        <span class="n">sorted_distances_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sorted_distances</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">query_adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+        <span class="n">sorted_ids_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">sorted_ids</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">query_adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sorted_distances_df</span><span class="p">,</span> <span class="n">sorted_ids_df</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Getting image nearest neighbors...&#39;</span><span class="p">)</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+
+    <span class="c1"># Define train subset (this is where val and test will look for nearest neighbors)</span>
+    <span class="n">train_subset</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;split&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;train&#39;</span><span class="p">]</span>
+    <span class="n">val_subset</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;split&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;val&#39;</span><span class="p">]</span>
+    <span class="n">test_subset</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;split&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="s1">&#39;test&#39;</span><span class="p">]</span>
+    
+    <span class="c1"># Use the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors</span>
+    <span class="n">val_train_distances_df</span><span class="p">,</span> <span class="n">val_train_ids_df</span> <span class="o">=</span> <span class="n">get_nn_dist_and_ids_images</span><span class="p">(</span><span class="n">val_subset</span><span class="p">,</span> <span class="n">train_subset</span><span class="p">)</span>
+    <span class="n">test_train_distances_df</span><span class="p">,</span> <span class="n">test_train_ids_df</span> <span class="o">=</span> <span class="n">get_nn_dist_and_ids_images</span><span class="p">(</span><span class="n">test_subset</span><span class="p">,</span> <span class="n">train_subset</span><span class="p">)</span>
+
+    <span class="c1"># Now get the patients of the train set</span>
+    <span class="n">train_patients</span> <span class="o">=</span> <span class="n">train_subset</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    
+    <span class="c1"># Define list of dataframes to store the distances and ids from the train set to the train set</span>
+    <span class="n">train_train_distances_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">train_train_ids_dfs</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="c1"># Cycle through train patients</span>
+    <span class="k">for</span> <span class="n">patient</span> <span class="ow">in</span> <span class="n">train_patients</span><span class="p">:</span>
+
+        <span class="c1"># Get the train patient data</span>
+        <span class="n">patient_data</span> <span class="o">=</span> <span class="n">train_subset</span><span class="p">[</span><span class="n">train_subset</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">patient</span><span class="p">]</span>
+        <span class="c1"># Get the train patient data that is not for the current patient</span>
+        <span class="n">other_patient_data</span> <span class="o">=</span> <span class="n">train_subset</span><span class="p">[</span><span class="n">train_subset</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;patient&#39;</span><span class="p">]</span> <span class="o">!=</span> <span class="n">patient</span><span class="p">]</span>
+
+        <span class="c1"># Apply the get_nn_dist_and_ids function to get the distances and ids of the nearest neighbors</span>
+        <span class="n">curr_patient_distances_df</span><span class="p">,</span> <span class="n">curr_patient_ids_df</span> <span class="o">=</span> <span class="n">get_nn_dist_and_ids_images</span><span class="p">(</span><span class="n">patient_data</span><span class="p">,</span> <span class="n">other_patient_data</span><span class="p">)</span>
+        
+        <span class="c1"># Append the dataframes to the list</span>
+        <span class="n">train_train_distances_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curr_patient_distances_df</span><span class="p">)</span>
+        <span class="n">train_train_ids_dfs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">curr_patient_ids_df</span><span class="p">)</span>
+
+    <span class="c1"># Concatenate the dataframes</span>
+    <span class="n">train_train_distances_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">train_train_distances_dfs</span><span class="p">)</span>
+    <span class="n">train_train_ids_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">(</span><span class="n">train_train_ids_dfs</span><span class="p">)</span>
+
+    <span class="c1"># Concatenate train, val and test distances and ids</span>
+    <span class="n">all_distances_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">train_train_distances_df</span><span class="p">,</span> <span class="n">val_train_distances_df</span><span class="p">,</span> <span class="n">test_train_distances_df</span><span class="p">])</span>
+    <span class="n">all_ids_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">train_train_ids_df</span><span class="p">,</span> <span class="n">val_train_ids_df</span><span class="p">,</span> <span class="n">test_train_ids_df</span><span class="p">])</span>
+
+    <span class="c1"># Reindex the dataframes</span>
+    <span class="n">all_distances_df</span> <span class="o">=</span> <span class="n">all_distances_df</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+    <span class="n">all_ids_df</span> <span class="o">=</span> <span class="n">all_ids_df</span><span class="o">.</span><span class="n">reindex</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">values</span><span class="p">)</span>
+    
+    <span class="c1"># Add the dataframes to the obsm</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="s1">&#39;image_nn_distances&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">all_distances_df</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="s1">&#39;image_nn_ids&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">all_ids_df</span>
+
+    <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Finished getting image nearest neighbors in </span><span class="si">{</span><span class="n">end</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="n">start</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1"> seconds&#39;</span><span class="p">)</span>
+
+<span class="c1"># Obtain ResNet50 embedding and add this information in the adata</span>
+<span class="k">def</span> <span class="nf">obtain_embeddings_resnet50</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">224</span><span class="p">):</span>
+
+    <span class="k">def</span> <span class="nf">extract</span><span class="p">(</span><span class="n">encoder</span><span class="p">,</span> <span class="n">patches</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">encoder</span><span class="p">(</span><span class="n">patches</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="n">features</span><span class="p">)</span>
+
+    <span class="n">egn_transforms</span> <span class="o">=</span> <span class="n">transforms</span><span class="o">.</span><span class="n">Normalize</span><span class="p">([</span><span class="mf">0.485</span><span class="p">,</span> <span class="mf">0.456</span><span class="p">,</span> <span class="mf">0.406</span><span class="p">],</span> <span class="p">[</span><span class="mf">0.229</span><span class="p">,</span> <span class="mf">0.224</span><span class="p">,</span> <span class="mf">0.225</span><span class="p">])</span>
+
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s1">&#39;cuda&#39;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;cpu&#39;</span><span class="p">)</span>
+    <span class="n">resnet_encoder</span> <span class="o">=</span> <span class="n">tmodels</span><span class="o">.</span><span class="n">resnet50</span><span class="p">(</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">features</span> <span class="o">=</span> <span class="n">resnet_encoder</span><span class="o">.</span><span class="n">fc</span><span class="o">.</span><span class="n">in_features</span>
+    <span class="n">modules</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">resnet_encoder</span><span class="o">.</span><span class="n">children</span><span class="p">())[:</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="c1"># Encoder corresponds to ResNet50 without the fc layer</span>
+    <span class="n">resnet_encoder</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Sequential</span><span class="p">(</span><span class="o">*</span><span class="n">modules</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">resnet_encoder</span><span class="o">.</span><span class="n">parameters</span><span class="p">():</span>
+        <span class="n">p</span><span class="o">.</span><span class="n">requires_grad</span> <span class="o">=</span> <span class="kc">False</span>
+
+    <span class="n">resnet_encoder</span> <span class="o">=</span> <span class="n">resnet_encoder</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">resnet_encoder</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+
+    <span class="c1"># Get the patches</span>
+    <span class="n">flat_patches</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;patches_scale_</span><span class="si">{</span><span class="n">patch_scale</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Reshape all the patches to the original shape</span>
+    <span class="n">all_patches</span> <span class="o">=</span> <span class="n">flat_patches</span><span class="o">.</span><span class="n">reshape</span><span class="p">((</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">,</span> <span class="mi">3</span><span class="p">))</span>
+    <span class="n">torch_patches</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">all_patches</span><span class="p">)</span><span class="o">.</span><span class="n">permute</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span>    <span class="c1"># Turn all patches to torch</span>
+    <span class="n">rescaled_patches</span> <span class="o">=</span> <span class="n">egn_transforms</span><span class="p">(</span><span class="n">torch_patches</span> <span class="o">/</span> <span class="mi">255</span><span class="p">)</span>                       <span class="c1"># Rescale patches to [0, 1]</span>
+
+    <span class="n">img_embedding</span> <span class="o">=</span> <span class="p">[</span><span class="n">extract</span><span class="p">(</span><span class="n">resnet_encoder</span><span class="p">,</span> <span class="n">single_patch</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="n">dim</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">))</span> <span class="k">for</span> <span class="n">single_patch</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">rescaled_patches</span><span class="p">)]</span>
+    <span class="n">img_embedding</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">cat</span><span class="p">(</span><span class="n">img_embedding</span><span class="p">)</span><span class="o">.</span><span class="n">contiguous</span><span class="p">()</span>             
+    
+    <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="s1">&#39;resnet50_embeddings&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">img_embedding</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
 </pre></div>
 
            </div>

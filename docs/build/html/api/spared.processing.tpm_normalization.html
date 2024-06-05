@@ -8,6 +8,7 @@
       <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=f3fccb13" />
 
   
   <!--[if lt IE 9]>
@@ -38,6 +39,7 @@
           
           <a href="../index.html" class="icon icon-home">
             SpaRED
+              <img src="../_static/spared_logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
@@ -61,6 +63,7 @@
 </ul>
 </li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.log1p_transformation.html">spared.processing.log1p_transformation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="spared.processing.get_spatial_neighbors.html">spared.processing.get_spatial_neighbors</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.clean_noise.html">spared.processing.clean_noise</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.combat_transformation.html">spared.processing.combat_transformation</a></li>
 <li class="toctree-l3"><a class="reference internal" href="spared.processing.get_deltas.html">spared.processing.get_deltas</a></li>
@@ -111,16 +114,16 @@
 <h1>spared.processing.tpm_normalization<a class="headerlink" href="#spared-processing-tpm-normalization" title="Link to this heading"></a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="spared.processing.tpm_normalization">
-<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">tpm_normalization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnData</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#tpm_normalization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.tpm_normalization" title="Link to this definition"></a></dt>
+<span class="sig-prename descclassname"><span class="pre">spared.processing.</span></span><span class="sig-name descname"><span class="pre">tpm_normalization</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">organism</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">adata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">AnnData</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">from_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">to_layer</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><span class="pre">str</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><span class="pre">AnnData</span></span></span><a class="reference internal" href="../_modules/spared/processing/processing.html#tpm_normalization"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#spared.processing.tpm_normalization" title="Link to this definition"></a></dt>
 <dd><p>Normalize expression using TPM normalization.</p>
 <p>This function applies TPM normalization to an AnnData object with raw counts. It also removes genes that are not fount in the <code class="docutils literal notranslate"><span class="pre">.gtf</span></code> annotation file.
 The counts are taken from <code class="docutils literal notranslate"><span class="pre">adata.layers[from_layer]</span></code> and the results are stored in <code class="docutils literal notranslate"><span class="pre">adata.layers[to_layer]</span></code>. It can perform the normalization
 for <a class="reference external" href="https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_43/gencode.v43.basic.annotation.gtf.gz">human</a> and <a class="reference external" href="https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M33/gencode.vM33.basic.annotation.gtf.gz">mouse</a> reference genomes.
-To specify which GTF annotation file should be used, the string parameter <code class="docutils literal notranslate"><span class="pre">'dataset'</span></code> must contain the substring <code class="docutils literal notranslate"><span class="pre">'mouse'</span></code> or <code class="docutils literal notranslate"><span class="pre">'human'</span></code>.</p>
+To specify which GTF annotation file should be used, the string parameter <code class="docutils literal notranslate"><span class="pre">'organism'</span></code> must be <code class="docutils literal notranslate"><span class="pre">'mouse'</span></code> or <code class="docutils literal notranslate"><span class="pre">'human'</span></code>.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>dataset</strong> (<em>str</em>) – The dataset name. Must contain the substring <code class="docutils literal notranslate"><span class="pre">'mouse'</span></code> or <code class="docutils literal notranslate"><span class="pre">'human'</span></code> to specify the reference genome.</p></li>
+<li><p><strong>organism</strong> (<em>str</em>) – Organism of the dataset. Must be ‘mouse’ or ‘human’.</p></li>
 <li><p><strong>adata</strong> (<em>ad.Anndata</em>) – The Anndata object to normalize.</p></li>
 <li><p><strong>from_layer</strong> (<em>str</em>) – The layer to take the counts from. The data in this layer should be in raw counts.</p></li>
 <li><p><strong>to_layer</strong> (<em>str</em>) – The layer to store the results of the normalization.</p></li>

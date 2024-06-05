@@ -7,6 +7,7 @@
       <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=80d5e7a1" />
       <link rel="stylesheet" type="text/css" href="../../../_static/css/theme.css?v=19f00094" />
       <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+      <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=f3fccb13" />
 
   
   <!--[if lt IE 9]>
@@ -35,6 +36,7 @@
           
           <a href="../../../index.html" class="icon icon-home">
             SpaRED
+              <img src="../../../_static/spared_logo.png" class="logo" alt="Logo"/>
           </a>
 <div role="search">
   <form id="rtd-search-form" class="wy-form" action="../../../search.html" method="get">
@@ -94,6 +96,23 @@
 <span class="kn">from</span> <span class="nn">time</span> <span class="kn">import</span> <span class="n">time</span>
 <span class="kn">from</span> <span class="nn">torchvision.transforms</span> <span class="kn">import</span> <span class="n">Normalize</span>
 <span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">scipy.cluster</span> <span class="kn">import</span> <span class="n">hierarchy</span>
+<span class="kn">import</span> <span class="nn">plotly.express</span> <span class="k">as</span> <span class="nn">px</span>
+<span class="kn">import</span> <span class="nn">pathlib</span>
+<span class="kn">import</span> <span class="nn">sys</span>
+
+<span class="c1">#Path a spared</span>
+<span class="n">SPARED_PATH</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span><span class="o">.</span><span class="n">parent</span>
+
+<span class="c1">#Agregar el directorio padre al sys.path para los imports</span>
+<span class="n">sys</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">SPARED_PATH</span><span class="p">))</span>
+<span class="c1">#import im_encoder and metrics files</span>
+<span class="kn">from</span> <span class="nn">embeddings</span> <span class="kn">import</span> <span class="n">im_encoder</span>
+<span class="kn">from</span> <span class="nn">metrics</span> <span class="kn">import</span> <span class="n">metrics</span>
+
+<span class="c1"># Import visualization and processing function</span>
+<span class="kn">from</span> <span class="nn">visualize</span> <span class="kn">import</span> <span class="n">visualize</span>
+<span class="kn">from</span> <span class="nn">processing</span> <span class="kn">import</span> <span class="n">processing</span>
 
 
 <span class="c1"># Funciones separadas para visualización</span>
@@ -206,7 +225,7 @@
 <span class="sd">        processed_adata (ad.AnnData): Processed and filtered data ready to use by the model.</span>
 <span class="sd">        path (str): Path to save the plot.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
-
+    
     <span class="c1"># Get unique slide ids</span>
     <span class="n">unique_ids</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">processed_adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;slide_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
 
@@ -236,6 +255,8 @@
 
 
 <span class="c1"># FIXME: Why is this here and why aren&#39;t we using the processing one?</span>
+<div class="viewcode-block" id="get_exp_frac">
+<a class="viewcode-back" href="../../../api/spared.visualize.get_exp_frac.html#spared.visualize.get_exp_frac">[docs]</a>
 <span class="k">def</span> <span class="nf">get_exp_frac</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Get expression fraction for each gene</span>
 
@@ -264,7 +285,8 @@
     <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;exp_frac&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_exp_frac</span>
 
     <span class="c1"># Return the adata</span>
-    <span class="k">return</span> <span class="n">adata</span>
+    <span class="k">return</span> <span class="n">adata</span></div>
+
 
 <span class="c1"># FIXME: Why is this here and why aren&#39;t we using the processing one?</span>
 <div class="viewcode-block" id="get_glob_exp_frac">
@@ -359,42 +381,6 @@
     <span class="n">sns</span><span class="o">.</span><span class="n">set_theme</span><span class="p">(</span><span class="n">font_scale</span><span class="o">=</span><span class="mf">1.0</span><span class="p">)</span>
     <span class="n">mpl</span><span class="o">.</span><span class="n">rcParams</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">mpl</span><span class="o">.</span><span class="n">rcParamsDefault</span><span class="p">)</span></div>
 
-
-<span class="c1">### Define function to get the expression fraction</span>
-
-<span class="c1"># FIXME: What the fuck is happening with this function</span>
-<div class="viewcode-block" id="get_exp_frac">
-<a class="viewcode-back" href="../../../api/spared.visualize.get_exp_frac.html#spared.visualize.get_exp_frac">[docs]</a>
-<span class="k">def</span> <span class="nf">get_exp_frac</span><span class="p">(</span><span class="n">adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot; Get expression fraction for each gene</span>
-
-<span class="sd">    This function computes the expression fraction for each gene in the dataset. Internally it gets the</span>
-<span class="sd">    expression fraction for each slide and then takes the minimum across all the slides.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="c1"># Get the unique slide ids</span>
-    <span class="n">slide_ids</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;slide_id&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
-
-    <span class="c1"># Define zeros matrix of shape (n_genes, n_slides)</span>
-    <span class="n">exp_frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">adata</span><span class="o">.</span><span class="n">n_vars</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">slide_ids</span><span class="p">)))</span>
-
-    <span class="c1"># Iterate over the slide ids</span>
-    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">slide_id</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">slide_ids</span><span class="p">):</span>
-        <span class="c1"># Get current slide adata</span>
-        <span class="n">slide_adata</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;slide_id&#39;</span><span class="p">]</span> <span class="o">==</span> <span class="n">slide_id</span><span class="p">,</span> <span class="p">:]</span>
-        <span class="c1"># Get current slide expression fraction</span>
-        <span class="n">curr_exp_frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">squeeze</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">((</span><span class="n">slide_adata</span><span class="o">.</span><span class="n">X</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span> <span class="o">/</span> <span class="n">slide_adata</span><span class="o">.</span><span class="n">n_obs</span><span class="p">))</span>
-        <span class="c1"># Add current slide expression fraction to the matrix</span>
-        <span class="n">exp_frac</span><span class="p">[:,</span> <span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">curr_exp_frac</span>
-    
-    <span class="c1"># Compute the minimum expression fraction for each gene across all the slides</span>
-    <span class="n">min_exp_frac</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">exp_frac</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
-
-    <span class="c1"># Add the minimum expression fraction to the var dataframe of the slide collection</span>
-    <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;exp_frac&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">min_exp_frac</span>
-
-    <span class="c1"># Return the adata</span>
-    <span class="k">return</span> <span class="n">adata</span></div>
-
     
 <div class="viewcode-block" id="plot_histograms">
 <a class="viewcode-back" href="../../../api/spared.visualize.plot_histograms.html#spared.visualize.plot_histograms">[docs]</a>
@@ -418,6 +404,7 @@
 <span class="sd">        raw_adata (ad.AnnData): Loaded data from .h5ad file that is not filtered but has patch information.</span>
 <span class="sd">        path (str): Path to save histogram plot.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
 
     <span class="c1"># Compute qc metrics for raw and processed data in order to have total counts updated</span>
     <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">calculate_qc_metrics</span><span class="p">(</span><span class="n">raw_adata</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">log1p</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">percent_top</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
@@ -500,6 +487,7 @@
 <span class="sd">        processed_adata (ad.AnnData): Processed and filtered data ready to use by the model.</span>
 <span class="sd">        path (str): Path to save the image.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="c1"># Get the flat patches from the dataset</span>
     <span class="n">flat_patches</span> <span class="o">=</span> <span class="n">processed_adata</span><span class="o">.</span><span class="n">obsm</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;patches_scale_</span><span class="si">{</span><span class="n">patch_scale</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span>
     <span class="c1"># Reshape the patches for them to have image form</span>
@@ -891,7 +879,7 @@
 
 <div class="viewcode-block" id="plot_data_distribution_stats">
 <a class="viewcode-back" href="../../../api/spared.visualize.plot_data_distribution_stats.html#spared.visualize.plot_data_distribution_stats">[docs]</a>
-<span class="k">def</span> <span class="nf">plot_data_distribution_stats</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span><span class="nb">str</span><span class="p">):</span>
+<span class="k">def</span> <span class="nf">plot_data_distribution_stats</span><span class="p">(</span><span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">path</span><span class="p">:</span><span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Plot dataset&#39;s general stats</span>
 
 <span class="sd">    This function plots a pie chart and bar plots of the distribution of spots and slides in the dataset split.</span>
@@ -965,6 +953,7 @@
 <span class="sd">        path (str): Path to save the image.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
+    
     <span class="c1"># Copy processed adata to avoid problems</span>
     <span class="n">aux_processed_adata</span> <span class="o">=</span> <span class="n">processed_adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span> 
 
@@ -987,7 +976,7 @@
 
 <div class="viewcode-block" id="plot_tests">
 <a class="viewcode-back" href="../../../api/spared.visualize.plot_tests.html#spared.visualize.plot_tests">[docs]</a>
-<span class="k">def</span> <span class="nf">plot_tests</span><span class="p">(</span><span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">split_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">dataset_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">raw_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span><span class="o">-&gt;</span><span class="kc">None</span><span class="p">:</span>
+<span class="k">def</span> <span class="nf">plot_tests</span><span class="p">(</span><span class="n">patch_scale</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">patch_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">dataset</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">split_names</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">folder_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">,</span> <span class="n">raw_adata</span><span class="p">:</span> <span class="n">ad</span><span class="o">.</span><span class="n">AnnData</span><span class="p">)</span><span class="o">-&gt;</span><span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot; Plot all quality control plots</span>
 
 <span class="sd">    This function calls all the plotting functions in the class to create 6 quality control plots to check if the processing step of</span>
@@ -1002,7 +991,7 @@
     <span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="p">()</span>
 
     <span class="c1"># Define directory path to save data</span>
-    <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dataset_path</span><span class="p">,</span> <span class="s1">&#39;qc_plots&#39;</span><span class="p">)</span>
+    <span class="n">save_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">folder_path</span><span class="p">,</span> <span class="s1">&#39;qc_plots&#39;</span><span class="p">)</span>
     <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="c1"># Define interest layers</span>
     <span class="n">relevant_layers</span> <span class="o">=</span> <span class="p">[</span><span class="s1">&#39;log1p&#39;</span><span class="p">,</span> <span class="s1">&#39;d_log1p&#39;</span><span class="p">,</span> <span class="s1">&#39;c_d_log1p&#39;</span><span class="p">]</span>
@@ -1016,17 +1005,16 @@
     <span class="c1"># Refine plotting slides string to assure they are in the dataset</span>
     <span class="n">param_dict</span><span class="p">[</span><span class="s1">&#39;plotting_slides&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">refine_plotting_slides_str</span><span class="p">(</span><span class="n">split_names</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">,</span> <span class="n">param_dict</span><span class="p">[</span><span class="s1">&#39;plotting_slides&#39;</span><span class="p">])</span>
 
-
     <span class="c1"># Plot partitions mean vs std scatter</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Started partitions mean vs std scatter plotting&#39;</span><span class="p">)</span>
     <span class="n">os</span><span class="o">.</span><span class="n">makedirs</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;mean_vs_std_partitions&#39;</span><span class="p">),</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="k">for</span> <span class="n">lay</span> <span class="ow">in</span> <span class="n">tqdm</span><span class="p">(</span><span class="n">relevant_layers</span><span class="p">):</span>
         <span class="n">plot_mean_std_partitions</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">,</span> <span class="n">from_layer</span><span class="o">=</span><span class="n">lay</span><span class="p">,</span> <span class="n">path</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;mean_vs_std_partitions&#39;</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">lay</span><span class="si">}</span><span class="s1">.png&#39;</span><span class="p">))</span>
-
+ 
     <span class="c1"># Plot all slides in collection</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Started all slides plotting&#39;</span><span class="p">)</span>
     <span class="n">plot_all_slides</span><span class="p">(</span><span class="n">dataset</span><span class="p">,</span> <span class="n">processed_adata</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;all_slides.png&#39;</span><span class="p">))</span>
-
+ 
     <span class="c1"># Make plot of filtering histograms</span>
     <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Started filtering histograms plotting&#39;</span><span class="p">)</span>
     <span class="n">plot_histograms</span><span class="p">(</span><span class="n">processed_adata</span><span class="p">,</span> <span class="n">raw_adata</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;filtering_histograms.png&#39;</span><span class="p">))</span>
@@ -1077,8 +1065,282 @@
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Quality control plotting took </span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">end</span><span class="o">-</span><span class="n">start</span><span class="p">,</span><span class="w"> </span><span class="mi">2</span><span class="p">)</span><span class="si">}</span><span class="s1">s&#39;</span><span class="p">)</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Images saved in </span><span class="si">{</span><span class="n">save_path</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span></div>
 
+<span class="c1">#visualize.plot_tests(patch_scale=variables[&quot;patch_scale&quot;], patch_size=variables[&quot;patch_size&quot;], dataset=variables[&quot;dataset&quot;], split_names=variables[&quot;split_names&quot;], param_dict=variables[&quot;param_dict&quot;], folder_path=folder_path, processed_adata=data.adata, raw_adata=data.raw_adata)</span>
+
+<span class="c1">#Visualizations for predictions</span>
+<span class="k">def</span> <span class="nf">log_one_gene</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gene</span><span class="p">,</span> <span class="n">slides</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+    
+    <span class="c1"># Get dict of individual slides adatas</span>
+    <span class="n">slides_adatas_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">processing</span><span class="o">.</span><span class="n">get_slide_from_collection</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">slides</span><span class="p">[</span><span class="n">p</span><span class="p">])</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">slides</span><span class="o">.</span><span class="n">keys</span><span class="p">()}</span>
+
+    <span class="c1"># Get min and max of the selected gene in the slides</span>
+    <span class="n">gene_min_pred</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">dat</span><span class="p">[:,</span> <span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">pred_layer</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">dat</span> <span class="ow">in</span> <span class="n">slides_adatas_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+    <span class="n">gene_max_pred</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">dat</span><span class="p">[:,</span> <span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">pred_layer</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">dat</span> <span class="ow">in</span> <span class="n">slides_adatas_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+    
+    <span class="n">gene_min_gt</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">dat</span><span class="p">[:,</span> <span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">gt_layer</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span> <span class="k">for</span> <span class="n">dat</span> <span class="ow">in</span> <span class="n">slides_adatas_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+    <span class="n">gene_max_gt</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">dat</span><span class="p">[:,</span> <span class="n">gene</span><span class="p">]</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">gt_layer</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="k">for</span> <span class="n">dat</span> <span class="ow">in</span> <span class="n">slides_adatas_dict</span><span class="o">.</span><span class="n">values</span><span class="p">()])</span>
+    
+    <span class="n">gene_min</span> <span class="o">=</span> <span class="nb">min</span><span class="p">([</span><span class="n">gene_min_pred</span><span class="p">,</span> <span class="n">gene_min_gt</span><span class="p">])</span>
+    <span class="n">gene_max</span> <span class="o">=</span> <span class="nb">max</span><span class="p">([</span><span class="n">gene_max_pred</span><span class="p">,</span> <span class="n">gene_max_gt</span><span class="p">])</span>
+
+    <span class="c1"># Define color normalization</span>
+    <span class="n">norm</span> <span class="o">=</span> <span class="n">matplotlib</span><span class="o">.</span><span class="n">colors</span><span class="o">.</span><span class="n">Normalize</span><span class="p">(</span><span class="n">vmin</span><span class="o">=</span><span class="n">gene_min</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">gene_max</span><span class="p">)</span>
+
+    <span class="c1"># Declare figure</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">ax</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="n">nrows</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">slides</span><span class="p">),</span> <span class="n">ncols</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">13</span><span class="p">,</span> <span class="mi">3</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">slides</span><span class="p">))</span>
+
+    <span class="c1"># Define order of rows in dict</span>
+    <span class="n">order_dict</span> <span class="o">=</span> <span class="p">{</span><span class="s1">&#39;train&#39;</span><span class="p">:</span> <span class="mi">0</span><span class="p">,</span> <span class="s1">&#39;val&#39;</span><span class="p">:</span> <span class="mi">1</span><span class="p">,</span> <span class="s1">&#39;test&#39;</span><span class="p">:</span> <span class="mi">2</span><span class="p">}</span>
+
+    <span class="c1"># Iterate over partitions</span>
+    <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">slides</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+        
+        <span class="c1"># Get current row</span>
+        <span class="n">row</span> <span class="o">=</span> <span class="n">order_dict</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        
+        <span class="n">curr_img</span> <span class="o">=</span> <span class="n">slides_adatas_dict</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s1">&#39;spatial&#39;</span><span class="p">][</span><span class="n">slides</span><span class="p">[</span><span class="n">p</span><span class="p">]][</span><span class="s1">&#39;images&#39;</span><span class="p">][</span><span class="s1">&#39;lowres&#39;</span><span class="p">]</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">curr_img</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">:</span><span class="se">\n</span><span class="si">{</span><span class="n">slides</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="si">}</span><span class="se">\n</span><span class="s1">PCC-Gene=</span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene</span><span class="p">,</span><span class="w"> </span><span class="sa">f</span><span class="s2">&quot;pcc_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xticks</span><span class="p">([])</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_yticks</span><span class="p">([])</span>
+
+        <span class="c1"># Plot gt and pred of gene in the specified slides</span>
+        <span class="n">sq</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">spatial_scatter</span><span class="p">(</span><span class="n">slides_adatas_dict</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">gene</span><span class="p">],</span> <span class="n">layer</span><span class="o">=</span><span class="n">gt_layer</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">1</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sq</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">spatial_scatter</span><span class="p">(</span><span class="n">slides_adatas_dict</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">gene</span><span class="p">],</span> <span class="n">layer</span><span class="o">=</span><span class="n">pred_layer</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">2</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">sq</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">spatial_scatter</span><span class="p">(</span><span class="n">slides_adatas_dict</span><span class="p">[</span><span class="n">p</span><span class="p">],</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="n">gene</span><span class="p">],</span> <span class="n">layer</span><span class="o">=</span><span class="n">pred_layer</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">3</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">,</span> <span class="n">colorbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Set y labels</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="p">[</span><span class="n">row</span><span class="p">,</span><span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
 
 
+    <span class="c1"># Format figure</span>
+    <span class="k">for</span> <span class="n">axis</span> <span class="ow">in</span> <span class="n">ax</span><span class="o">.</span><span class="n">flatten</span><span class="p">():</span>
+        <span class="n">axis</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+        <span class="c1"># Turn off all spines</span>
+        <span class="n">axis</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="s1">&#39;top&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">axis</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="s1">&#39;right&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">axis</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="s1">&#39;bottom&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">axis</span><span class="o">.</span><span class="n">spines</span><span class="p">[</span><span class="s1">&#39;left&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">set_visible</span><span class="p">(</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Refine figure appereance</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Original Image&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Groundtruth</span><span class="se">\n</span><span class="s1">Fixed Scale&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Prediction</span><span class="se">\n</span><span class="s1">Fixed Scale&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+    <span class="n">ax</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">3</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Prediction</span><span class="se">\n</span><span class="s1">Variable Scale&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="s1">&#39;large&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Add fixed colorbar</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">matplotlib</span><span class="o">.</span><span class="n">cm</span><span class="o">.</span><span class="n">ScalarMappable</span><span class="p">(</span><span class="n">norm</span><span class="o">=</span><span class="n">norm</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;jet&#39;</span><span class="p">),</span> <span class="n">ax</span><span class="o">=</span><span class="n">ax</span><span class="p">[:</span><span class="mi">3</span><span class="p">,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">location</span><span class="o">=</span><span class="s1">&#39;right&#39;</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.05</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="mi">25</span><span class="o">*</span><span class="nb">len</span><span class="p">(</span><span class="n">slides</span><span class="p">)</span><span class="o">+</span><span class="mi">5</span><span class="p">)</span>
+
+    <span class="c1"># Get ordering split</span>
+    <span class="n">order_split</span> <span class="o">=</span> <span class="s1">&#39;test&#39;</span> <span class="k">if</span> <span class="s1">&#39;test&#39;</span> <span class="ow">in</span> <span class="n">slides</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">else</span> <span class="s1">&#39;val&#39;</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">suptitle</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">gene</span><span class="si">}</span><span class="s1">: PCC_</span><span class="si">{</span><span class="n">order_split</span><span class="si">}</span><span class="s1">=</span><span class="si">{</span><span class="nb">round</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">gene</span><span class="p">,</span><span class="w"> </span><span class="sa">f</span><span class="s2">&quot;pcc_</span><span class="si">{</span><span class="n">order_split</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">],</span><span class="mi">3</span><span class="p">)</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+    <span class="c1"># Save plot</span>
+    <span class="c1">#wandb.log({gene: fig})</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">log_pred_correlations</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">top_k</span><span class="o">=</span><span class="mi">50</span><span class="p">):</span>
+
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;This function logs the correlation matrices of the top k genes in the ground truth and predictions layers.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        pred_layer (str): The name of the predictions layer.</span>
+<span class="sd">        top_k (int, optional): The number of top genes to log. Defaults to 50.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="c1"># Get prediction and groundtruth layers from layers keys in the anndata</span>
+    <span class="n">exp_pred</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">pred_layer</span><span class="p">]</span>
+    <span class="n">exp_gt</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">gt_layer</span><span class="p">]</span>
+
+    <span class="c1">#take mean of expression</span>
+    <span class="n">mean</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">exp_gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1">#find the indices of the top_k highest values</span>
+    <span class="n">ind</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argpartition</span><span class="p">(</span><span class="n">mean</span><span class="p">,</span> <span class="o">-</span><span class="n">top_k</span><span class="p">)[</span><span class="o">-</span><span class="n">top_k</span><span class="p">:]</span>
+
+    <span class="c1"># Compute the correlation matrixes subsetting the top k genes</span>
+    <span class="n">corr_matrix_gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">exp_gt</span><span class="p">[</span><span class="n">ind</span><span class="p">,</span> <span class="p">:])</span>
+    <span class="n">corr_matrix_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">corrcoef</span><span class="p">(</span><span class="n">exp_pred</span><span class="p">[</span><span class="n">ind</span><span class="p">,</span> <span class="p">:])</span>
+
+    <span class="c1"># Hierarchical clustering</span>
+    <span class="n">dendrogram</span> <span class="o">=</span> <span class="n">hierarchy</span><span class="o">.</span><span class="n">dendrogram</span><span class="p">(</span><span class="n">hierarchy</span><span class="o">.</span><span class="n">linkage</span><span class="p">(</span><span class="n">corr_matrix_gt</span><span class="p">,</span> <span class="n">method</span><span class="o">=</span><span class="s1">&#39;ward&#39;</span><span class="p">),</span> <span class="n">no_plot</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="c1"># Get the cluster indexes</span>
+    <span class="n">cluster_idx</span> <span class="o">=</span> <span class="n">dendrogram</span><span class="p">[</span><span class="s1">&#39;leaves&#39;</span><span class="p">]</span>
+
+    <span class="c1"># Reaorder the correlation matrixes based on the clustering results</span>
+    <span class="n">corr_matrix_pred</span> <span class="o">=</span> <span class="n">corr_matrix_pred</span><span class="p">[</span><span class="n">cluster_idx</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">corr_matrix_pred</span> <span class="o">=</span> <span class="n">corr_matrix_pred</span><span class="p">[:,</span> <span class="n">cluster_idx</span><span class="p">]</span>
+    <span class="n">corr_matrix_gt</span> <span class="o">=</span> <span class="n">corr_matrix_gt</span><span class="p">[</span><span class="n">cluster_idx</span><span class="p">,</span> <span class="p">:]</span>
+    <span class="n">corr_matrix_gt</span> <span class="o">=</span> <span class="n">corr_matrix_gt</span><span class="p">[:,</span> <span class="n">cluster_idx</span><span class="p">]</span>
+
+    <span class="c1"># Create subplots</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="n">axes</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">layout</span><span class="o">=</span><span class="s1">&#39;constrained&#39;</span><span class="p">)</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">set_size_inches</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">)</span>
+
+    <span class="c1"># Calculate min and max for color normalization</span>
+    <span class="n">vmin</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">corr_matrix_gt</span><span class="o">.</span><span class="n">min</span><span class="p">(),</span> <span class="n">corr_matrix_pred</span><span class="o">.</span><span class="n">min</span><span class="p">())</span>
+    <span class="n">vmax</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">corr_matrix_gt</span><span class="o">.</span><span class="n">max</span><span class="p">(),</span> <span class="n">corr_matrix_pred</span><span class="o">.</span><span class="n">max</span><span class="p">())</span>
+    
+    <span class="c1"># Plot heatmap for predictions</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">corr_matrix_pred</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">xticklabels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">yticklabels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cbar</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Predictions&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Plot heatmap for ground truth</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">heatmap</span><span class="p">(</span><span class="n">corr_matrix_gt</span><span class="p">,</span> <span class="n">ax</span><span class="o">=</span><span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">xticklabels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">yticklabels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">cbar</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=</span><span class="n">vmin</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="n">vmax</span><span class="p">)</span>
+    <span class="n">axes</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s2">&quot;Ground Truth&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Save figure</span>
+    <span class="c1">#wandb.log({&#39;correlations&#39;: wandb.Image(fig)})</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">log_mean_variance</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">path</span><span class="p">):</span>
+
+    <span class="c1"># Get prediction and groundtruth layers from layers keys in the anndata</span>
+    <span class="n">exp_pred</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">pred_layer</span><span class="p">]</span>
+    <span class="n">exp_gt</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="p">[</span><span class="n">gt_layer</span><span class="p">]</span>
+
+    <span class="c1">#take the mean expression for each gene </span>
+    <span class="n">mean_gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">exp_gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">mean_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">exp_pred</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="c1">#take the variance of expression for each gene </span>
+    <span class="n">var_gt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">exp_gt</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="n">var_pred</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">var</span><span class="p">(</span><span class="n">exp_pred</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+
+    <span class="c1">#sort genes by mean expression</span>
+    <span class="n">sorted_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">mean_gt</span><span class="p">)</span>
+    <span class="n">mean_gt</span> <span class="o">=</span> <span class="n">mean_gt</span><span class="p">[</span><span class="n">sorted_indexes</span><span class="p">]</span>
+    <span class="n">mean_pred</span> <span class="o">=</span> <span class="n">mean_pred</span><span class="p">[</span><span class="n">sorted_indexes</span><span class="p">]</span>
+
+    <span class="c1">#sort genes by variance</span>
+    <span class="n">sorted_indexes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">var_gt</span><span class="p">)</span>
+    <span class="n">var_gt</span> <span class="o">=</span> <span class="n">var_gt</span><span class="p">[</span><span class="n">sorted_indexes</span><span class="p">]</span>
+    <span class="n">var_pred</span> <span class="o">=</span> <span class="n">var_pred</span><span class="p">[</span><span class="n">sorted_indexes</span><span class="p">]</span>
+
+    <span class="c1">#Make plots</span>
+
+    <span class="c1"># Prepare data</span>
+    <span class="n">genes</span> <span class="o">=</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">mean_pred</span><span class="p">))</span>  
+    <span class="n">data_mean</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s1">&#39;Genes&#39;</span><span class="p">:</span> <span class="n">genes</span><span class="p">,</span>
+        <span class="s1">&#39;Mean Expression Prediction&#39;</span><span class="p">:</span> <span class="n">mean_pred</span><span class="p">,</span>
+        <span class="s1">&#39;Mean Expression Ground Truth&#39;</span><span class="p">:</span> <span class="n">mean_gt</span>
+    <span class="p">})</span>
+    <span class="n">data_variance</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s1">&#39;Genes&#39;</span><span class="p">:</span> <span class="n">genes</span><span class="p">,</span>
+        <span class="s1">&#39;Variance Prediction&#39;</span><span class="p">:</span> <span class="n">var_pred</span><span class="p">,</span>
+        <span class="s1">&#39;Variance Ground Truth&#39;</span><span class="p">:</span> <span class="n">var_gt</span>
+    <span class="p">})</span>
+
+    <span class="c1"># Figure configurations</span>
+    <span class="c1">#sns.set_style(&quot;darkgrid&quot;)</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">set_palette</span><span class="p">(</span><span class="s2">&quot;tab10&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Crear la figura y los ejes</span>
+    <span class="n">fig</span><span class="p">,</span> <span class="p">(</span><span class="n">ax1</span><span class="p">,</span> <span class="n">ax2</span><span class="p">)</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">10</span><span class="p">,</span> <span class="mi">5</span><span class="p">))</span>
+
+    <span class="c1"># Mean subplot</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax1</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data_mean</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span><span class="n">id_vars</span><span class="o">=</span><span class="s1">&#39;Genes&#39;</span><span class="p">,</span> <span class="n">var_name</span><span class="o">=</span><span class="s1">&#39;Condition&#39;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s1">&#39;Mean Expression&#39;</span><span class="p">),</span>
+                    <span class="n">x</span><span class="o">=</span><span class="s1">&#39;Genes&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s1">&#39;Mean Expression&#39;</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="s1">&#39;Condition&#39;</span><span class="p">,</span> <span class="n">palette</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;orange&#39;</span><span class="p">,</span> <span class="s1">&#39;blue&#39;</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Genes&#39;</span><span class="p">)</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Mean Expression&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Variance subplot</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">scatterplot</span><span class="p">(</span><span class="n">ax</span><span class="o">=</span><span class="n">ax2</span><span class="p">,</span> <span class="n">data</span><span class="o">=</span><span class="n">data_variance</span><span class="o">.</span><span class="n">melt</span><span class="p">(</span><span class="n">id_vars</span><span class="o">=</span><span class="s1">&#39;Genes&#39;</span><span class="p">,</span> <span class="n">var_name</span><span class="o">=</span><span class="s1">&#39;Condition&#39;</span><span class="p">,</span> <span class="n">value_name</span><span class="o">=</span><span class="s1">&#39;Variance&#39;</span><span class="p">),</span>
+                    <span class="n">x</span><span class="o">=</span><span class="s1">&#39;Genes&#39;</span><span class="p">,</span> <span class="n">y</span><span class="o">=</span><span class="s1">&#39;Variance&#39;</span><span class="p">,</span> <span class="n">hue</span><span class="o">=</span><span class="s1">&#39;Condition&#39;</span><span class="p">,</span> <span class="n">palette</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;orange&#39;</span><span class="p">,</span> <span class="s1">&#39;blue&#39;</span><span class="p">],</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Genes&#39;</span><span class="p">)</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Variance&#39;</span><span class="p">)</span>
+
+    <span class="c1"># Crear una leyenda personalizada con las etiquetas deseadas y colocarla en el gráfico</span>
+    <span class="n">handles</span><span class="p">,</span> <span class="n">labels</span> <span class="o">=</span> <span class="n">ax1</span><span class="o">.</span><span class="n">get_legend_handles_labels</span><span class="p">()</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">legend</span><span class="p">(</span><span class="n">handles</span><span class="p">,</span> <span class="p">[</span><span class="s1">&#39;Prediction&#39;</span><span class="p">,</span> <span class="s1">&#39;Ground Truth&#39;</span><span class="p">],</span> <span class="n">loc</span><span class="o">=</span><span class="s1">&#39;upper center&#39;</span><span class="p">,</span> <span class="n">ncol</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">frameon</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="c1"># Quitar spines</span>
+    <span class="n">sns</span><span class="o">.</span><span class="n">despine</span><span class="p">()</span>
+
+    <span class="c1"># Hide individual legends</span>
+    <span class="n">ax1</span><span class="o">.</span><span class="n">get_legend</span><span class="p">()</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+    <span class="n">ax2</span><span class="o">.</span><span class="n">get_legend</span><span class="p">()</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
+
+    <span class="c1"># Save figure</span>
+    <span class="c1">#wandb.log({&#39;mean_variance&#39;: wandb.Image(fig)})</span>
+    <span class="n">fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">log_pred_image</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">save_path</span><span class="p">,</span> <span class="n">n_genes</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span> <span class="n">slides</span><span class="p">:</span> <span class="nb">dict</span> <span class="o">=</span> <span class="p">{}):</span>
+    
+    <span class="c1">### 1. Get the selected genes</span>
+
+    <span class="c1"># Get prediction and groundtruth layers from layers keys in the anndata</span>
+    <span class="n">pred_layer</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;predictions&#39;</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+    <span class="n">pred_layer</span> <span class="o">=</span> <span class="n">pred_layer</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">pred_layer</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="n">gt_layer</span> <span class="o">=</span> <span class="p">[</span><span class="n">l</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;,&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span> <span class="k">for</span> <span class="n">l</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="s1">&#39;predictions&#39;</span> <span class="ow">in</span> <span class="n">l</span><span class="p">]</span>
+    <span class="n">gt_layer</span> <span class="o">=</span> <span class="n">gt_layer</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="n">gt_layer</span> <span class="k">else</span> <span class="kc">None</span>
+    <span class="c1"># Handle delta prediction in normal scale</span>
+    <span class="k">if</span> <span class="s1">&#39;deltas&#39;</span> <span class="ow">in</span> <span class="n">gt_layer</span><span class="p">:</span>
+        <span class="n">gt_layer</span> <span class="o">=</span> <span class="n">gt_layer</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;deltas&#39;</span><span class="p">,</span> <span class="s1">&#39;log1p&#39;</span><span class="p">)</span>
+    <span class="c1"># Be sure the prediction layer and gt layer is present in dataset</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">pred_layer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">),</span> <span class="s1">&#39;predictions layer not present in the adata&#39;</span>
+    <span class="k">assert</span> <span class="ow">not</span> <span class="p">(</span><span class="n">gt_layer</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">),</span> <span class="s1">&#39;groundtruth layer not present in the adata&#39;</span>
+
+    <span class="c1"># Get partition names of current dataset</span>
+    <span class="n">partitions</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">split</span><span class="o">.</span><span class="n">unique</span><span class="p">())</span>
+    <span class="c1"># Get dict of adatas separated by splits</span>
+    <span class="n">adatas_dict</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="n">adata</span><span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">split</span> <span class="o">==</span> <span class="n">p</span><span class="p">,</span> <span class="p">:]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">partitions</span><span class="p">}</span>
+
+    <span class="c1"># Compute and ad detailed metrics for each split</span>
+    <span class="k">for</span> <span class="n">p</span><span class="p">,</span> <span class="n">curr_adata</span> <span class="ow">in</span> <span class="n">adatas_dict</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+
+        <span class="c1"># Get detailed metrics from partition</span>
+        <span class="n">detailed_metrics</span> <span class="o">=</span> <span class="n">metrics</span><span class="o">.</span><span class="n">get_metrics</span><span class="p">(</span>
+            <span class="n">gt_mat</span> <span class="o">=</span> <span class="n">curr_adata</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="n">gt_layer</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">pred_mat</span> <span class="o">=</span> <span class="n">curr_adata</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="n">pred_layer</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">mask</span> <span class="o">=</span> <span class="n">curr_adata</span><span class="o">.</span><span class="n">to_df</span><span class="p">(</span><span class="n">layer</span><span class="o">=</span><span class="s1">&#39;mask&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+            <span class="n">detailed</span><span class="o">=</span><span class="kc">True</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Add detalied metrics to global adata</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;pcc_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detailed_metrics</span><span class="p">[</span><span class="s1">&#39;detailed_PCC-Gene&#39;</span><span class="p">]</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;r2_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detailed_metrics</span><span class="p">[</span><span class="s1">&#39;detailed_R2-Gene&#39;</span><span class="p">]</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;mse_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detailed_metrics</span><span class="p">[</span><span class="s1">&#39;detailed_mse_gene&#39;</span><span class="p">]</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;mae_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">detailed_metrics</span><span class="p">[</span><span class="s1">&#39;detailed_mae_gene&#39;</span><span class="p">]</span>
+        
+        <span class="c1"># Define plotly plots</span>
+        <span class="n">pcc_fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;pcc_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">marginal</span><span class="o">=</span><span class="s1">&#39;rug&#39;</span><span class="p">,</span> <span class="n">hover_data</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;pcc_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">r2_fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;r2_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">marginal</span><span class="o">=</span><span class="s1">&#39;rug&#39;</span><span class="p">,</span> <span class="n">hover_data</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;r2_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">mse_fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mse_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">marginal</span><span class="o">=</span><span class="s1">&#39;rug&#39;</span><span class="p">,</span> <span class="n">hover_data</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mse_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">mae_fig</span> <span class="o">=</span> <span class="n">px</span><span class="o">.</span><span class="n">histogram</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">,</span> <span class="n">x</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mae_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">marginal</span><span class="o">=</span><span class="s1">&#39;rug&#39;</span><span class="p">,</span> <span class="n">hover_data</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">columns</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;mae_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Save figures </span>
+        <span class="n">pcc_fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;pcc_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="n">r2_fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;r2_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="n">mse_fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;mse_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+        <span class="n">mae_fig</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;mae_gene_</span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">))</span>
+        
+        <span class="c1"># Log plotly plot to wandb</span>
+        <span class="c1">#wandb.log({f&#39;pcc_gene_{p}&#39;: wandb.Plotly(pcc_fig)})</span>
+        <span class="c1">#wandb.log({f&#39;r2_gene_{p}&#39;: wandb.Plotly(r2_fig)})</span>
+        <span class="c1">#wandb.log({f&#39;mse_gene_{p}&#39;: wandb.Plotly(mse_fig)})</span>
+        <span class="c1">#wandb.log({f&#39;mae_gene_{p}&#39;: wandb.Plotly(mae_fig)})            </span>
+    
+    <span class="c1"># Get ordering split</span>
+    <span class="n">order_split</span> <span class="o">=</span> <span class="s1">&#39;test&#39;</span> <span class="k">if</span> <span class="s1">&#39;test&#39;</span> <span class="ow">in</span> <span class="n">partitions</span> <span class="k">else</span> <span class="s1">&#39;val&#39;</span>
+    <span class="c1"># Get selected genes based on the best pcc</span>
+    <span class="n">n_top</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">nlargest</span><span class="p">(</span><span class="n">n_genes</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;pcc_</span><span class="si">{</span><span class="n">order_split</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+    <span class="n">n_botom</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="o">.</span><span class="n">nsmallest</span><span class="p">(</span><span class="n">n_genes</span><span class="p">,</span> <span class="n">columns</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;pcc_</span><span class="si">{</span><span class="n">order_split</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span><span class="o">.</span><span class="n">index</span><span class="o">.</span><span class="n">to_list</span><span class="p">()</span>
+    <span class="n">selected_genes</span> <span class="o">=</span> <span class="n">n_top</span> <span class="o">+</span> <span class="n">n_botom</span>
+
+    <span class="c1">### 2. Get the selected slides. NOTE: Only first slide is always selected in case slides is not specified by parameter.</span>
+    <span class="k">if</span> <span class="n">slides</span> <span class="o">==</span> <span class="p">{}:</span>
+        <span class="n">slides</span> <span class="o">=</span> <span class="p">{</span><span class="n">p</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">adatas_dict</span><span class="p">[</span><span class="n">p</span><span class="p">]</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">slide_id</span><span class="o">.</span><span class="n">unique</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">partitions</span><span class="p">}</span>
+     
+    <span class="k">for</span> <span class="n">gene</span> <span class="ow">in</span> <span class="n">selected_genes</span><span class="p">:</span>
+        <span class="n">log_one_gene</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gene</span><span class="p">,</span> <span class="n">slides</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">gene</span><span class="si">}</span><span class="s1">_prediction.png&#39;</span><span class="p">))</span>
+    
+    <span class="n">log_pred_correlations</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;correlation.png&#39;</span><span class="p">))</span>
+    <span class="n">log_mean_variance</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gt_layer</span><span class="p">,</span> <span class="n">pred_layer</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">save_path</span><span class="p">,</span> <span class="s1">&#39;mean_variance.png&#39;</span><span class="p">))</span>
 </pre></div>
 
            </div>
