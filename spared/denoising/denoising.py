@@ -3,6 +3,13 @@ from tqdm import tqdm
 import numpy as np
 import sys
 import pathlib
+import torch
+import os
+os.environ['USE_PYGEOS'] = '0' # To supress a warning from geopandas
+import json
+from lightning.pytorch import seed_everything
+from torch.utils.data import DataLoader
+import warnings
 # Get the path of the spared database
 # SPARED_PATH = pathlib.Path(__file__).parent
 
@@ -13,13 +20,18 @@ SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(SPARED_PATH))
 # Import im_encoder.py file
 from spot_features import spot_features
+from layer_operations import layer_operations
+from datasets import datasets
+from spackle.utils import *
+from spackle.model import GeneImputationModel
+from spackle.dataset import ImputationDataset
+from spackle.main import train_spackle
 # Remove the path from sys.path
 sys.path.remove(str(SPARED_PATH))
 
-#TODO: esto debe quedar como dos funciones, una que limpie por medio del filtro mediano y otra por medio del transformer
-#clean noise limpia con medianas (ajustar)
-#crear la de transformer
-def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
+
+#clean noise limpia con medianas
+def median_cleaner(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: int, hex_geometry: bool) -> ad.AnnData:
     """Remove noise with median filter.
 
     Function that cleans noise (missing data) with a modified adaptive median filter for each slide in an AnnData collection.
@@ -176,3 +188,95 @@ def clean_noise(collection: ad.AnnData, from_layer: str, to_layer: str, n_hops: 
     corrected_collection.uns = collection.uns
 
     return corrected_collection
+
+#clean noise con spackle
+def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: str, device, lr = 1e-3, train = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
+    # Get parser and parse arguments
+    parser = get_main_parser()
+    args = parser.parse_args()
+    args_dict = vars(args)
+
+    # Set manual seeds and get cuda
+    seed_everything(42)
+    
+    save_path = os.path.join('imput_results', dataset, "best_model")
+    os.makedirs(save_path, exist_ok=True)
+
+    # Save script arguments in json file
+    with open(os.path.join(save_path, 'script_params.json'), 'w') as f:
+        json.dump(args_dict, f, indent=4)
+
+    train_spackle(adata=adata, device=device, save_path=save_path, prediction_layer=from_layer, lr=lr, train=train, load_ckpt_path=load_ckpt_path, optimizer=optimizer, max_steps=max_steps, args=args)
+    # Declare model
+    vis_features_dim = 0
+    model = GeneImputationModel(
+        args=args, 
+        data_input_size=adata.n_vars,
+        lr=lr,
+        optimizer=optimizer,
+        vis_features_dim=vis_features_dim
+        ).to(device)  
+    
+    # Get path to best checkpoints 
+    best_model_dir = os.path.join("imput_results", dataset, "best_model", "")
+
+    with open(os.path.join(best_model_dir, 'script_params.json'), 'r') as f:
+        saved_script_params = json.load(f)
+        # Check that the parameters of the loaded model agree with the current inference process
+        # if (saved_script_params['prediction_layer'] != args_dict['prediction_layer']) or (saved_script_params['prediction_layer'] != args_dict['prediction_layer']):
+        #   warnings.warn("Saved model's parameters differ from those of the current argparse.")
+
+    best_model_path = glob.glob(os.path.join(best_model_dir, '*.ckpt'))[0]
+
+    # Load best checkpoints
+    state_dict = torch.load(best_model_path)
+    state_dict = state_dict['state_dict']
+    model.load_state_dict(state_dict)
+    model.to(device)
+    model.eval()
+    print(f"Finished loading model with weights from {best_model_path}")
+
+    # Prepare data and dataloader
+    data = ImputationDataset(adata, args, 'complete', from_layer)
+    dataloader = DataLoader(
+        data, 
+        batch_size=args.batch_size, 
+        shuffle=False, 
+        pin_memory=True, 
+        drop_last=False, 
+        num_workers=args.num_workers)
+    
+    # Get gene imputations for missing values
+    all_exps = []
+    all_masks = []
+    exp_with_imputation = []
+    with torch.no_grad():
+        for batch in tqdm(dataloader):
+            del batch['split_name']
+            # Extract batch variables
+            batch = {k: v.to(device) for k, v in batch.items()}
+            expression_gt = batch['exp_matrix_gt']
+            mask = batch['real_missing']
+            # Remove median imputations from gene expression matrix
+            input_genes = expression_gt.clone()
+            input_genes[~mask] = 0
+
+            # Get predictions
+            prediction = model.forward(input_genes)
+
+            # Imput predicted gene expression only in missing data for 'main spot' in the neighborhood
+            imputed_exp = torch.where(mask[:,0,:], expression_gt[:,0,:], prediction[:,0,:])
+
+            all_exps.append(expression_gt[:,0,:])
+            all_masks.append(batch['real_missing'][:,0,:])
+            exp_with_imputation.append(imputed_exp)
+
+    # Concatenate output tensors into complete data expression matrix
+    all_exps = torch.cat(all_exps)
+    all_masks = torch.cat(all_masks)
+    exp_with_imputation = torch.cat(exp_with_imputation) 
+
+    # Add imputed data to adata
+    adata.layers[to_layer] = np.asarray(exp_with_imputation.cpu().double())
+    
+    return adata

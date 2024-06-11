@@ -338,7 +338,7 @@ def process_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     adata = log1p_transformation(adata, from_layer='tpm', to_layer='log1p')
 
     # 3. Denoise the data with adaptive median filter
-    adata = denoising.clean_noise(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=param_dict["hex_geometry"])
+    adata = denoising.median_cleaner(adata, from_layer='log1p', to_layer='d_log1p', n_hops=4, hex_geometry=param_dict["hex_geometry"])
 
     # 4. Compute average moran for each gene in the layer d_log1p 
     adata = gene_features.compute_moran(adata, hex_geometry=param_dict["hex_geometry"], from_layer='d_log1p')
@@ -361,6 +361,8 @@ def process_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 
     # 8. Add a binary mask layer specifying valid observations for metric computation
     adata.layers['mask'] = adata.layers['tpm'] != 0
+    
+    # TODO: add spackle imputation and deltas
     
     # Print with the percentage of the dataset that was replaced
     print('Percentage of imputed observations with median filter: {:5.3f}%'.format(100 * (~adata.layers["mask"]).sum() / (adata.n_vars*adata.n_obs)))

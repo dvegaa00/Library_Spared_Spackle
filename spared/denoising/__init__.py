@@ -1,2 +1,5 @@
-from .denoising import clean_noise
-#spared.denoising.clean_noise
+from .denoising import median_cleaner
+#spared.denoising.median_cleaner
+
+from .denoising import spackle_cleaner
+#spared.denoising.spackle_cleaner

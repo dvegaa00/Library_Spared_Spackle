@@ -1,10 +1,20 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from utils import *
+from spackle.utils import *
 import lightning as L
-from spared.metrics import get_metrics
-#from metrics import get_metrics
+import pathlib
+import sys
+
+# El path a spared es ahora diferente
+SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
+
+# Agregar el directorio padre al sys.path para los imports
+sys.path.append(str(SPARED_PATH))
+# Import im_encoder.py file
+from metrics.metrics import get_metrics
+# Remove the path from sys.path
+sys.path.remove(str(SPARED_PATH))
 
 
 class MLP(torch.nn.Module):
@@ -323,6 +333,8 @@ class GeneImputationModel(L.LightningModule):
         self,
         args,
         data_input_size, # 128 (or number of genes) if input shape is [batch, 7 (n_spots), 128]
+        lr,
+        optimizer,
         train_mask_prob_tensor = None, # None in case the model is used for inference and doesn't require random masking probabilities
         val_test_mask_prob_tensor = None,
         vis_features_dim = 0
@@ -334,7 +346,10 @@ class GeneImputationModel(L.LightningModule):
         self.base_architecture = args.base_arch
         self.use_visual_features = args.use_visual_features
         self.use_double_branch_archit = args.use_double_branch_archit
-
+        self.lr = lr
+        self.optimizer = optimizer
+        self.transformer_dim = data_input_size
+        #FIXME: transformer dim changed from args (128) to equal the input data size
         # Set split name for testing
         self.split_name = None
 
@@ -355,7 +370,7 @@ class GeneImputationModel(L.LightningModule):
         if self.use_visual_features:
             if self.use_double_branch_archit:
                 self.model = DoubleTransformerEncoder(
-                    transformer_dim = args.transformer_dim, 
+                    transformer_dim = self.transformer_dim, 
                     transformer_heads = args.transformer_heads, 
                     transformer_encoder_layers = args.transformer_encoder_layers, 
                     n_genes = data_input_size,
@@ -366,7 +381,7 @@ class GeneImputationModel(L.LightningModule):
             
             else:
                 self.model = TransformerEncoderVisualFeatures(
-                    args.transformer_dim,
+                    self.transformer_dim,
                     args.transformer_heads,
                     args.transformer_encoder_layers,
                     n_genes = data_input_size,
@@ -377,7 +392,7 @@ class GeneImputationModel(L.LightningModule):
         else:
             if self.base_architecture == 'transformer_encoder':
                 self.model = TransformerEncoder(
-                    args.transformer_dim,
+                    self.transformer_dim,
                     args.transformer_heads,
                     args.transformer_encoder_layers,
                     data_input_size
@@ -533,9 +548,9 @@ class GeneImputationModel(L.LightningModule):
 
     def configure_optimizers(self):
         try:
-            optimizer = getattr(torch.optim, self.args.optimizer)(self.parameters(), lr=self.args.lr, momentum=self.args.momentum)
+            optimizer = getattr(torch.optim, self.optimizer)(self.parameters(), lr=self.lr, momentum=self.args.momentum)
         except:
-            optimizer = getattr(torch.optim, self.args.optimizer)(self.parameters(), lr=self.args.lr)
+            optimizer = getattr(torch.optim, self.optimizer)(self.parameters(), lr=self.lr)
 
         return optimizer
     
