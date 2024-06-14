@@ -4,6 +4,7 @@ spared/data/annotations/gencode.v43.basic.annotation.gtf
 spared/data/annotations/gencode.vM33.basic.annotation.gtf
 spared/processed_data/
 spared/data/villacampa_data/
+spared/data/vicari_data/
 spared/PublicDatabase/
 spared/imput_results/
 spared/lightning_logs/
