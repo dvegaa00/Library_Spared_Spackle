@@ -9,3 +9,5 @@ spared/PublicDatabase/
 spared/imput_results/
 spared/lightning_logs/
 docs/notebooks/tutorials/lightning_logs/
+docs/all_plots/
+docs/inv_plots/
