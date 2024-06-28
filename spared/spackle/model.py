@@ -349,7 +349,6 @@ class GeneImputationModel(L.LightningModule):
         self.lr = lr
         self.optimizer = optimizer
         self.transformer_dim = data_input_size
-        #FIXME: transformer dim changed from args (128) to equal the input data size
         # Set split name for testing
         self.split_name = None
 

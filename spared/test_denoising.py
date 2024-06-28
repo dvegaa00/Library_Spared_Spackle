@@ -38,6 +38,18 @@ adata.layers['mask'] = adata.layers['tpm'] != 0
 #def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: str, device) -> ad.AnnData:
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
-adata = denoising.spackle_cleaner(adata=adata, dataset=data.dataset, from_layer="c_d_log1p", to_layer="c_t_log1p", device=device)
+
+#Test cleaning function (including the training of a new SpaCKLE model)
+adata_1, _  = denoising.spackle_cleaner(adata=adata, dataset=data.dataset, from_layer="c_d_log1p", to_layer="c_t_log1p", device=device)
+
+#Test cleaning function (using ckpts of a trained SpaCKLE model)
+adata_2, ckpt_path  = denoising.spackle_cleaner(adata=adata, dataset=data.dataset, from_layer='c_d_log1p', to_layer= 'c_t_log1p', train = False, load_ckpt_path = "/home/pcardenasg/Library_Spared_Spackle/spared/imput_results/villacampa_lung_organoid/2024-06-14-22-59-43/epoch=316-step=950.ckpt", device=device)
+
+#Test function for reproducing the paper's results (including training)
+repro_1 = denoising.spackle_cleaner_experiment(adata=adata, dataset=data.dataset, from_layer="c_d_log1p", device=device, lr = 1e-3, train = True, load_ckpt_path = "")
+
+#Test function for reproducing the paper's results (only testing trained ckpts, for example, when downloading SpaCKLE's checkpoints)
+repro_2 = denoising.spackle_cleaner_experiment(adata=adata, dataset=data.dataset, from_layer="c_d_log1p", device=device, lr = 1e-3, train = False, load_ckpt_path = "/home/pcardenasg/Library_Spared_Spackle/spared/imput_results/villacampa_lung_organoid/2024-06-14-22-59-43/epoch=316-step=950.ckpt")
+
 #DONE
 breakpoint()

@@ -4,6 +4,7 @@ from spackle.utils import *
 
 class ImputationDataset(torch.utils.data.Dataset):
     def __init__(self, adata, args, split_name, prediction_layer, pre_masked = False):
+        # TODO: update this description (this class doesn't download the data)
         """
         This is a spatial data class that contains all the information about the dataset. It will call a reader class depending on the type
         of dataset (by now only visium and STNet are supported). The reader class will download the data and read it into an AnnData collection
@@ -60,7 +61,7 @@ class ImputationDataset(torch.utils.data.Dataset):
     def build_neighborhood_from_hops(self, idx):
         # Get nn indexes for the n_hop required
         nn_index_list = self.neighbors_dict[idx]
-        # FIXME: should I keep setting the dtype to 'torch.FloatTensor' so that the model (whose dtype is 'torch.float32') can operate on the input data?
+        # Get the gene expression values for the nn
         exp_matrix = self.expression_mtx[nn_index_list].type('torch.FloatTensor') # Original dtype was 'torch.float64'
         # Get image embeddings if needed
         embeddings = self.embeddings[nn_index_list] if self.use_visual_features else None

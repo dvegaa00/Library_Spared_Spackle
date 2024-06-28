@@ -3,6 +3,7 @@ from tqdm import tqdm
 import numpy as np
 import sys
 import pathlib
+from datetime import datetime
 import torch
 import os
 os.environ['USE_PYGEOS'] = '0' # To supress a warning from geopandas
@@ -189,24 +190,125 @@ def median_cleaner(collection: ad.AnnData, from_layer: str, to_layer: str, n_hop
 
     return corrected_collection
 
-#clean noise con spackle
-def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: str, device, lr = 1e-3, train = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
+#Replicate SpaCKLE's results
+def spackle_cleaner_experiment(adata: ad.AnnData, dataset: str, from_layer: str, device, lr = 1e-3, train = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
+    # TODO: [PC] add in the documentation that the adata must have data splits in adata.obs['split'] and the values should be 'train', 'val', and (optional) 'test'
+    # TODO: [PC] For documentation: 
+            # "This function's purpose is solely to reproduce the results presented in SpaCKLE's paper"
+            # load_ckpt_path example: /home/pcardenasg/spared_imputation/imput_results/vicari_mouse_brain/2024-02-28-07-02-31/epoch=101-step=9370.ckpt {should end with the ckpt file and the ckpts file must be inside a directory that also contains script_params.json}
+
     # Get parser and parse arguments
     parser = get_main_parser()
     args = parser.parse_args()
     args_dict = vars(args)
 
+    # Get datetime
+    run_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
     # Set manual seeds and get cuda
     seed_everything(42)
     
-    save_path = os.path.join('imput_results', dataset, "best_model")
-    os.makedirs(save_path, exist_ok=True)
+    # TODO: [PC] allow the use of an already-trained model?
+    if train:
+        # Create directory where the newly trained model will be saved #save_path = os.path.join('imput_results', dataset, "best_model") # TODO: [PC] group opinion: ¿should we set data naming with date like in our works?
+        save_path = os.path.join('imput_results', dataset, run_date)
+        os.makedirs(save_path, exist_ok=True)
 
-    # Save script arguments in json file
-    with open(os.path.join(save_path, 'script_params.json'), 'w') as f:
-        json.dump(args_dict, f, indent=4)
+        # Save script arguments in json file
+        with open(os.path.join(save_path, 'script_params.json'), 'w') as f:
+            json.dump(args_dict, f, indent=4)
 
-    train_spackle(adata=adata, device=device, save_path=save_path, prediction_layer=from_layer, lr=lr, train=train, load_ckpt_path=load_ckpt_path, optimizer=optimizer, max_steps=max_steps, args=args)
+        print(f"Training a new SpaCKLE model. The script arguments and best checkpoints will be saved in {save_path}")
+
+    else:
+
+        assert os.path.exists(load_ckpt_path), "load_ckpts_path not found. Please use train = True if you do not have the checkpoints of a trained SpaCKLE model and its corresponding script_params.json file."
+        
+        save_path = os.path.dirname(load_ckpt_path)
+        # FIXME: [PC] decidir qué elementos comparar y recordar que al subir los pesos (i.e Drive) subirlos con su json de params correspondiente
+        with open(os.path.join(save_path, 'script_params.json'), 'r') as f:
+            saved_script_params = json.load(f)
+            # Check that the parameters of the loaded model agree with the current inference process
+            #if (saved_script_params['prediction_layer'] != args_dict['prediction_layer']) or (saved_script_params['prediction_layer'] != args_dict['prediction_layer']):
+            #    warnings.warn("Saved model's parameters differ from those of the current argparse.")
+
+        print(f"Model from {load_ckpt_path} will be loaded and tested. No new training will be undergone.")
+        
+    # Train new SpaCKLE model
+    train_spackle(
+        adata=adata, 
+        device=device, 
+        save_path=save_path, 
+        prediction_layer=from_layer, 
+        lr=lr, 
+        train=train, 
+        get_performance=True,
+        load_ckpt_path=load_ckpt_path, 
+        optimizer=optimizer, 
+        max_steps=max_steps, 
+        args=args)
+
+#clean noise con spackle
+def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: str, device, lr = 1e-3, train = True, get_performance_metrics = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
+    # TODO: [PC] add in the documentation that the adata must have data splits in adata.obs['split'] and the values should be 'train', 'val', and (optional) 'test'
+    # TODO: [PC] For documentation: 
+            # "This function's purpose is solely to reproduce the results presented in SpaCKLE's paper"
+            # load_ckpt_path example: /home/pcardenasg/spared_imputation/imput_results/vicari_mouse_brain/2024-02-28-07-02-31/epoch=101-step=9370.ckpt {should end with the ckpt file and the ckpts file must be inside a directory that also contains script_params.json}
+
+    # Get parser and parse arguments
+    parser = get_main_parser()
+    args = parser.parse_args()
+    args_dict = vars(args)
+
+    # Get datetime
+    run_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+
+    # Set manual seeds and get cuda
+    seed_everything(42)
+    
+    # TODO: [PC] allow the use of an already-trained model?
+    if train:
+        # Código para entrenar modelo (train_splackle()) y retornar ruta a mejores pesos del entrenamiento
+        # Create directory where the newly trained model will be saved #save_path = os.path.join('imput_results', dataset, "best_model") # TODO: [PC] group opinion: ¿should we set data naming with date like in our works?
+        save_path = os.path.join('imput_results', dataset, run_date)
+        os.makedirs(save_path, exist_ok=True)
+
+        # Save script arguments in json file
+        with open(os.path.join(save_path, 'script_params.json'), 'w') as f:
+            json.dump(args_dict, f, indent=4)
+        
+        # Train new SpaCKLE model
+        train_spackle(
+            adata=adata, 
+            device=device, 
+            save_path=save_path, 
+            prediction_layer=from_layer, 
+            lr=lr, 
+            train=train, 
+            get_performance=get_performance_metrics,
+            load_ckpt_path=load_ckpt_path, 
+            optimizer=optimizer, 
+            max_steps=max_steps, 
+            args=args)
+        
+        load_ckpt_path = glob.glob(os.path.join(save_path, '*.ckpt'))[0]
+
+    else:
+
+        assert os.path.exists(load_ckpt_path), "load_ckpts_path not found. Please use train = True if you do not have the checkpoints of a trained SpaCKLE model and its corresponding script_params.json file."
+        
+        save_path = os.path.dirname(load_ckpt_path)
+        # FIXME: [PC] decidir qué elementos comparar y recordar que al subir los pesos (i.e Drive) subirlos con su json de params correspondiente
+        with open(os.path.join(save_path, 'script_params.json'), 'r') as f:
+            saved_script_params = json.load(f)
+            # Check that the parameters of the loaded model agree with the current inference process
+            #if (saved_script_params['prediction_layer'] != args_dict['prediction_layer']) or (saved_script_params['prediction_layer'] != args_dict['prediction_layer']):
+            #    warnings.warn("Saved model's parameters differ from those of the current argparse.")
+
+            if saved_script_params['transformer_dim'] != adata.n_vars:
+                warnings.warn("The architecture of the model you want to load may not be compatible with the shape of the data.")
+
+
     # Declare model
     vis_features_dim = 0
     model = GeneImputationModel(
@@ -216,25 +318,14 @@ def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: 
         optimizer=optimizer,
         vis_features_dim=vis_features_dim
         ).to(device)  
-    
-    # Get path to best checkpoints 
-    best_model_dir = os.path.join("imput_results", dataset, "best_model", "")
-
-    with open(os.path.join(best_model_dir, 'script_params.json'), 'r') as f:
-        saved_script_params = json.load(f)
-        # Check that the parameters of the loaded model agree with the current inference process
-        # if (saved_script_params['prediction_layer'] != args_dict['prediction_layer']) or (saved_script_params['prediction_layer'] != args_dict['prediction_layer']):
-        #   warnings.warn("Saved model's parameters differ from those of the current argparse.")
-
-    best_model_path = glob.glob(os.path.join(best_model_dir, '*.ckpt'))[0]
 
     # Load best checkpoints
-    state_dict = torch.load(best_model_path)
+    state_dict = torch.load(load_ckpt_path)
     state_dict = state_dict['state_dict']
     model.load_state_dict(state_dict)
     model.to(device)
     model.eval()
-    print(f"Finished loading model with weights from {best_model_path}")
+    print(f"Finished loading model with weights from {load_ckpt_path}")
 
     # Prepare data and dataloader
     data = ImputationDataset(adata, args, 'complete', from_layer)
@@ -246,10 +337,13 @@ def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: 
         drop_last=False, 
         num_workers=args.num_workers)
     
-    # Get gene imputations for missing values
+    # Get gene imputations for missing values of randomly masked elements trhoughout the entire dataset
     all_exps = []
     all_masks = []
     exp_with_imputation = []
+    
+    print("----"*30)
+    print(f"Completing missing values in adata with the SpaCKLE model from {load_ckpt_path}")
     with torch.no_grad():
         for batch in tqdm(dataloader):
             del batch['split_name']
@@ -279,4 +373,5 @@ def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: 
     # Add imputed data to adata
     adata.layers[to_layer] = np.asarray(exp_with_imputation.cpu().double())
     
-    return adata
+    # Return the adata with cleaned layer and the path to the ckpts used to complete the missing values.
+    return adata, load_ckpt_path

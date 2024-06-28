@@ -1,4 +1,5 @@
 import os
+import json
 os.environ['USE_PYGEOS'] = '0' # To supress a warning from geopandas
 from spackle.utils import *
 from spackle.model import GeneImputationModel
@@ -26,6 +27,7 @@ def get_imputation_results_from_trained_model(trainer, model, best_model_path, t
 
     Args:
         trainer (lightning.Trainer): pytorch lightning trainer used for model training and testing.
+        # FIXME: model debe ser de tipo "GeneImputationModel"? Especificar
         model (model): imputation model with loaded weights to test perfomance.
         best_model_path (str): path to the checkpoints that will be tested.
         train_loader (torch.DataLoader): DataLoader of the train data split. 
@@ -96,19 +98,17 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
 
     # Build dictionary with results from median and model
     complete_imputation_results = {
-        'train_model_results': trained_model_results[0],
-        'val_model_results': trained_model_results[1]
+        'train_spackle_results': trained_model_results[0],
+        'val_spackle_results': trained_model_results[1]
         }
     
     if test_split is not None:
-        complete_imputation_results['test_model_results'] = trained_model_results[2]
+        complete_imputation_results['test_spackle_results'] = trained_model_results[2]
     
     return complete_imputation_results, train_split, val_split, test_split
 
 
-def train_spackle(adata, device, save_path, prediction_layer, lr, train, load_ckpt_path, optimizer, max_steps, args):
-    # Get dataset from the values defined in args
-    #dataset = datasets.get_dataset(dataset, visualize=False)
+def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_performance, load_ckpt_path, optimizer, max_steps, args):
     # Check if test split is available
     test_data_available = True if 'test' in adata.obs['split'].unique() else False
     # Declare data splits
@@ -167,7 +167,7 @@ def train_spackle(adata, device, save_path, prediction_layer, lr, train, load_ck
         enable_model_summary=True,
         #profiler=profiler
     )
-    
+
     if train:
         # Train the model
         trainer.fit(
@@ -181,22 +181,40 @@ def train_spackle(adata, device, save_path, prediction_layer, lr, train, load_ck
     else:
         # Load the checkpoints that will be tested
         best_model_path = load_ckpt_path
+        get_performance = True
 
-    complete_imputation = get_complete_imputation_results(
-                model = model, 
-                trainer = trainer, 
-                best_model_path = best_model_path, 
-                args = args,
-                prob_tensor = val_test_prob_tensor, 
-                device = device, 
-                prediction_layer=prediction_layer,
-                train_split = train_split, 
-                val_split = val_split, 
-                test_split = test_split
-                )
+    if get_performance:
+        print(f"Calculating test metrics for model in {load_ckpt_path}")
+        # Get performance metrics 
+        complete_imputation = get_complete_imputation_results(
+                    model = model, 
+                    trainer = trainer, 
+                    best_model_path = best_model_path, 
+                    args = args,
+                    prob_tensor = val_test_prob_tensor, 
+                    device = device, 
+                    prediction_layer=prediction_layer,
+                    train_split = train_split, 
+                    val_split = val_split, 
+                    test_split = test_split
+                    )
+        
+        # complete_imput_results is a dictionary of dictionaries. Each inner dictionary contains the evaluation metrics for the model when imputing randomly masked values in one of the data splits
+        complete_imput_results, train_split, val_split, test_split = complete_imputation
 
-    complete_imput_results, train_split, val_split, test_split = complete_imputation
-    
+        # Save results in a txt file
+        test_description = f"Gene imputation through SpaCKLE.\n"\
+                            f"Checkpoints restored from {best_model_path}"
+        
+        file_path = os.path.join(save_path, 'testing_results.txt')
+        with open(file_path, 'w') as txt_file:
+            txt_file.write(test_description)
+            # Convert the dictionary to a formatted string
+            dict_str = json.dumps(complete_imput_results, indent=4)
+            txt_file.write(dict_str)
+
+        print(f"Results from testing the model in {best_model_path} were saved in {file_path}")
+  
 # Run gene imputation model
 """
 if __name__=='__main__':
