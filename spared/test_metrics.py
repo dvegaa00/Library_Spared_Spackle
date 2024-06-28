@@ -16,7 +16,6 @@ imputed_fraction = 0.26 # This is the percentage of zeros in the mask
 pred = torch.randn((obs,genes))
 gt = torch.randn((obs,genes))
 mask = torch.rand((obs,genes))>imputed_fraction
-breakpoint()
 
 #def get_pearsonr(gt_mat: torch.Tensor, pred_mat: torch.Tensor, mask: torch.Tensor, axis:int) -> Tuple[float, list]:
 mean_pcc, list_pcc = metrics.get_pearsonr(gt_mat=gt, pred_mat=pred, mask=mask, axis=0)
