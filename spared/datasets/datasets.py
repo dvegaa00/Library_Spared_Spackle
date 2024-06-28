@@ -257,7 +257,7 @@ class SpatialDataset():
 
             if self.visualize:
                 # QC plotting
-                plotting.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                plotting.plot_tests(self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
                 # Copy figures folder into public database
                 os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
                 if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
@@ -281,7 +281,7 @@ class SpatialDataset():
             if self.visualize:
                 collection_raw = ad.read_h5ad(os.path.join(self.dataset_path, f'adata_raw.h5ad'))
                 # QC plotting
-                plotting.plot_tests(self.patch_scale, self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
+                plotting.plot_tests(self.patch_size, self.dataset, self.split_names, self.param_dict, self.dataset_path, collection_processed, collection_raw)
                 # Copy figures folder into public database
                 os.makedirs(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset), exist_ok=True)
                 if os.path.exists(os.path.join(SPARED_PATH, 'PublicDatabase', self.dataset, 'qc_plots')):
