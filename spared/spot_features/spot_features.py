@@ -44,7 +44,6 @@ def compute_patches_embeddings(adata: ad.AnnData, backbone: str ='densenet', mod
     Raises:
         ValueError: If the backbone is not supported. Or if there are more than one key starting with ``patches_scale`` in the ``adata.obsm`` keys.
     """
-
     # Define a cuda device if available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     

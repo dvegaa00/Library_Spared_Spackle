@@ -53,6 +53,7 @@ def get_pretrain_dataloaders(adata: ad.AnnData, layer: str = 'c_d_log1p', batch_
     # Handle noisy training
     # Add this function in procces_data function and automaticaaly generate noisy layers for this layers:
     # c_d_log1p, c_t_log1p, c_d_deltas, c_t_deltas
+    # FIXME: This is generating the unwanted message "Using noisy_delta layer for training. This will probably yield bad results." in quickstart tutorial
     adata = layer_operations.add_noisy_layer(adata=adata, prediction_layer=layer)
 
     # Set the X of the adata to the layer casted to float32
