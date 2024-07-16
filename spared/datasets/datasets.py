@@ -41,7 +41,6 @@ from readers.ParigiReader import ParigiReader
 from readers.VicariReader import VicariReader
 from readers.VillacampaReader import VillacampaReader
 from readers.VisiumReader import VisiumReader
-from readers.HudsonReader import HudsonReader
 #Remover el directorio padre al sys.path 
 sys.path.append(str(SPARED_PATH))
 
@@ -209,15 +208,7 @@ class SpatialDataset():
                 patch_scale=self.patch_scale,
                 patch_size=self.patch_size,
                 force_compute=self.force_compute
-            )
-        elif 'hudson' in self.dataset:
-            reader_class = HudsonReader(
-                dataset=self.dataset,
-                param_dict=self.param_dict,
-                patch_scale=self.patch_scale,
-                patch_size=self.patch_size,
-                force_compute=self.force_compute
-            )    
+            )  
         else:
             reader_class = VisiumReader(
                 dataset=self.dataset,
@@ -344,15 +335,49 @@ class HisToGeneDataset(Dataset):
         
         return patch, coor, exp, mask
 
-
+# TODO: Add the possibility to save the dataset and plots in a specific folder
+# TODO: Update the docstring of this function after adding the folder parameter
 def get_dataset(dataset_name: str, visualize: bool) -> SpatialDataset:
-    """
-    This function receives the name of a dataset and retrieves a SpatialDataset object according to the arguments.
+    """ Retrieve a predefined dataset from SpaRED by name.
+
+    This function receives the name of a dataset and retrieves a ``SpatialDataset`` object according to its name. The dataset must be defined in the SpaRED database.
+    Optionally, it can plot a complete set of quality control plots for the dataset.
+
     Args:
-        dataset_name (str): The name of the dataset.
+        dataset_name (str): The name of the dataset. The options are:
+
+            - ``'10xgenomic_human_brain'``
+            - ``'10xgenomic_mouse_brain_coronal'``
+            - ``'10xgenomic_mouse_brain_sagittal_anterior'``
+            - ``'10xgenomic_mouse_brain_sagittal_posterior'``
+            - ``'10xgenomic_human_breast_cancer'``
+            - ``'abalo_human_squamous_cell_carcinoma'``
+            - ``'erickson_human_prostate_cancer_p1'``
+            - ``'erickson_human_prostate_cancer_p2'``
+            - ``'fan_mouse_brain_coronal'``
+            - ``'fan_mouse_olfatory_bulb'``
+            - ``'mirzazadeh_human_colon_p1'``
+            - ``'mirzazadeh_human_colon_p2'``
+            - ``'mirzazadeh_human_pediatric_brain_tumor_p1'``
+            - ``'mirzazadeh_human_pediatric_brain_tumor_p2'``
+            - ``'mirzazadeh_human_prostate_cancer'``
+            - ``'mirzazadeh_human_small_intestine'``
+            - ``'mirzazadeh_mouse_brain'``
+            - ``'mirzazadeh_mouse_brain_p1'``
+            - ``'mirzazadeh_mouse_brain_p2'``
+            - ``'mirzazadeh_mouse_bone'``
+            - ``'parigi_mouse_intestine'``
+            - ``'vicari_human_striatium'``
+            - ``'vicari_mouse_brain'``
+            - ``'villacampa_kidney_organoid'``
+            - ``'villacampa_lung_organoid'``
+            - ``'villacampa_mouse_brain'``
+            
+            
+        visualize (bool): If ``True``, it will plot a complete set of quality control plots for the dataset.
     Returns:
-        dataset: The specified dataset in a SpatialDataset object.
-    """
+        SpatialDataset: The specified dataset object.
+    """    
     
     # Get the name of the config based on the dataset
     config = os.path.join(SPARED_PATH, 'configs', f'{dataset_name}.json')

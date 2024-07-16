@@ -15,19 +15,20 @@ from gene_features import gene_features
 # Remove the path from sys.path
 sys.path.remove(str(SPARED_PATH))
 
+# TODO: add documentation reference to the compute moran function
 def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnData:
     """ Filter prediction genes by Moran's I.
 
     This function filters the genes in ``adata.var`` by the Moran's I statistic. It keeps the ``n_keep`` genes with the highest Moran's I.
     The Moran's I values will be selected from ``adata.var[f'{from_layer}_moran']`` which must be already present in the ``adata``.
-    If ``n_keep <= 0``, it means the number of genes is no specified and wee proceed to automatically compute it in the following way:
+    If ``n_keep <= 0``, it means the number of genes is not specified and wee proceed to automatically compute it in the following way:
     
         a. If ``adata.n_vars > 320`` then ``n_keep = 128``.
         b. else, ``n_keep = 32``. 
 
     Args:
         adata (ad.AnnData): The AnnData object to update. Must have ``adata.var[f'{from_layer}_moran']`` column.
-        n_keep (int): The number of genes to keep. I less than ``0`` the number of genes to keep is computed automatically.
+        n_keep (int): The number of genes to keep. If less than ``0`` the number of genes to keep is computed automatically.
         from_layer (str): Layer for which the Moran's I was already computed (``adata.var[f'{from_layer}_moran']``).
 
     Returns:
@@ -59,6 +60,9 @@ def filter_by_moran(adata: ad.AnnData, n_keep: int, from_layer: str) -> ad.AnnDa
     # Return the updated AnnData object
     return adata
 
+# TODO: add documentation reference to the get_exp_frac, get_glob_exp_frac, and sc.pp.calculate_qc_metrics functions
+# TODO: CHange name of param_dict['cell_min_counts'] and param_dict['cell_max_counts'] keys for 'spot_min_counts' and 'spot_max_counts' respectively
+# TODO: Change documentation after including the previous TODO's
 def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
     """ Perform complete filtering pipeline of a slide collection.
 
@@ -180,6 +184,7 @@ def filter_dataset(adata: ad.AnnData, param_dict: dict) -> ad.AnnData:
 
     return adata
 
+# FIXME: Join the following 2 functions into one 
 def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData:
     """ Retrieve a slide from a collection of slides.
 
@@ -188,7 +193,7 @@ def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData
 
     Args: 
         collection (ad.AnnData): AnnData object with all the slides concatenated.
-        slide (str): Name of the slide to get from the collection. Must be in the ``slide_id`` column of the ``collection.obs`` dataframe.
+        slide (str): Name of the slide to get from the collection. Must be in the the ``collection.obs['slide_id']`` column.
 
     Returns:
         ad.AnnData: An AnnData object with the specified slide.
@@ -202,15 +207,17 @@ def get_slide_from_collection(collection: ad.AnnData,  slide: str) -> ad.AnnData
     # Return the slide
     return slide_adata
 
+# TODO: Make the name of the function more explicit (specify we will get a list)
+# TODO: Update documentation .rst after the change is done
 def get_slides_adata(collection: ad.AnnData, slide_list: str) -> list:
-    """ Get list of adatas to plot
+    """ Get list of adatas from collection
 
     This function receives a string with a list of slides separated by commas and returns a list of anndata objects with
     the specified slides taken from the collection parameter. 
 
     Args:
-        collection (ad.AnnData): Processed and filtered data ready to use by the model.
-        slide_list (str): String with a list of slides separated by commas.
+        collection (ad.AnnData): AnnData object with all the slides concatenated.
+        slide_list (str): String with a list of slides separated by commas (without spaces). All slides must be present in the ``collection.obs['slide_id']`` column.
 
     Returns:
         list: List of anndata objects with the specified slides.

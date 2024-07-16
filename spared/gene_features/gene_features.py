@@ -18,11 +18,11 @@ def get_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     """ Compute the expression fraction for all genes.
 
     The expression fraction of a gene in a slide is defined as the proportion of spots where that gene is expressed. It is a number between ``0``
-    and ``1`` where ``0`` means that the gene is not expressed in any spot and ``1`` means that the gene is expressed in all the spots.
+    and ``1`` where ``0`` means that the gene is not expressed in any spot and ``1`` means that the gene is expressed in all the spots of the slide.
 
-    To compute an aggregation of expression fractions in a complete dataset, this function gets the
+    To compute an aggregation of expression fractions in a collection of slides, this function gets the
     expression fraction for each slide and then takes the minimum across all the slides. Hence the final number is a lower bound that ensures
-    that the gene is expressed in at least that fraction of the spots in each of the slides.
+    that the gene is expressed in at least that fraction of the spots in each one of the slides.
 
     Args:
         adata (ad.AnnData): A slide collection where non-expressed genes have a value of ``0`` in the ``adata.X`` matrix.
@@ -78,6 +78,7 @@ def get_glob_exp_frac(adata: ad.AnnData) -> ad.AnnData:
     # Return the adata
     return adata
 
+# TODO: Add documentation reference to some literature of the moran's I statistic
 def compute_moran(adata: ad.AnnData, from_layer: str, hex_geometry: bool) -> ad.AnnData:
     
     """Compute Moran's I statistic for each gene.
@@ -89,7 +90,7 @@ def compute_moran(adata: ad.AnnData, from_layer: str, hex_geometry: bool) -> ad.
     Args:
         adata (ad.AnnData): The AnnData object to update. Must have expression values in ``adata.layers[from_layer]``.
         from_layer (str): The key in ``adata.layers`` with the values used to compute Moran's I.
-        hex_geometry (bool): Whether the geometry is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I. Only ``True`` for visium datasets.
+        hex_geometry (bool): Whether the geometry is hexagonal or not. This is used to compute the spatial neighbors before computing Moran's I. Only ``True`` for Visium datasets.
 
     Returns:
         ad.AnnData: The updated AnnData object with the average Moran's I for each gene in ``adata.var[f'{from_layer}_moran']``.

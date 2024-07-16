@@ -17,7 +17,6 @@ pip install positional-encodings[pytorch]
 pip install openpyxl
 pip install pyzipper
 pip install plotly
-pip install sh
 pip install sphinx
 pip install -U sphinx-copybutton
 pip install -U sphinx_rtd_theme

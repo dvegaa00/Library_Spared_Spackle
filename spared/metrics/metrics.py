@@ -446,11 +446,11 @@ if __name__=='__main__':
         print("{} = {:5.7f}".format(key, val))
 
 
-    # Compute metrics with the slow way (inefficient implementation but secure)
-    print('Slow metrics'+'-'*40) 
-    start = time()
-    slow_test_metrics = slow_get_metrics(gt, pred, mask=mask)
-    print("Time taken: {:5.2f}s".format(time()-start))
+    # # Compute metrics with the slow way (inefficient implementation but secure)
+    # print('Slow metrics'+'-'*40) 
+    # start = time()
+    # slow_test_metrics = slow_get_metrics(gt, pred, mask=mask)
+    # print("Time taken: {:5.2f}s".format(time()-start))
 
-    for key, val in slow_test_metrics.items():
-        print("{} = {:5.7f}".format(key, val))
+    # for key, val in slow_test_metrics.items():
+    #     print("{} = {:5.7f}".format(key, val))

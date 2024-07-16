@@ -19,25 +19,30 @@ from models import models
 sys.path.remove(str(SPARED_PATH))
 
 ### Patch processing functions
+
 ## Compute the patch embeddings
-def compute_patches_embeddings(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", patch_size: int = 224) -> None:
-    """ Compute embeddings or predictions for patches.
+# TODO: Add reference to the pytorch documentation for the models
+# FIXME: Not all the backbone strings follow the same standard as pytorch models. Fix this for the consistency.
+# TODO: Update docstring after above fix
+def compute_patches_embeddings(adata: ad.AnnData, backbone: str ='densenet', model_path:str='None', patch_size: int = 224) -> None:
+    """ Compute model's embeddings for patches.
 
-    This function computes embeddings for a given backbone model and adata object. It can optionally
-    compute using a stored model in model_path or a pretrained model from pytorch. The embeddings are
-    stored in adata.obsm[f'embeddings_{backbone}']. The patches
-    must be stored in adata.obsm[f'patches_scale_{patch_scale}'] and must be of shape (n_patches, patch_size*patch_size*3).
+    This function computes patch embeddings (last linear layer representations) for a given backbone model and adata object. It can optionally
+    compute using a stored model in ``model_path`` or a pretrained model from Pytorch. The embeddings are stored in ``adata.obsm[f'embeddings_{backbone}']``.
+    The patches are expected to be have ``int`` values from ``0`` to ``255`` and all the needed transformations are performed inside. They also must be
+    flattened and stored in ``adata.obsm[f'patches_scale_{patch_scale}']`` with shape ``(n_patches, patch_size*patch_size*3)``. The ``patch_scale`` value is
+    not important for this function. The only important condition is that there is a single key starting with ``patches_scale`` in the ``adata.obsm`` keys.
 
-    The function only modifies the AnnData object in place.
+    The function modifies the AnnData object in place.
 
     Args:
         adata (ad.AnnData): The AnnData object to process.
-        backbone (str, optional): A string specifiying the backbone model to use. Must be one of the following ['resnet', 'resnet50', 'ConvNeXt', 'EfficientNetV2', 'InceptionV3', 'MaxVit', 'MobileNetV3', 'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResnet', 'densenet', 'swin']. Defaults to 'densenet'.
-        model_path (str, optional): The path to a stored model. If set to 'None', then a pretrained model is used. Defaults to "None".
+        backbone (str, optional): A string specifying the backbone model to use. Must be one of the following ``['resnet', 'resnet50', 'ConvNeXt', 'EfficientNetV2', 'InceptionV3', 'MaxVit', 'MobileNetV3', 'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResnet', 'densenet', 'swin']``. Defaults to ``'densenet'``.
+        model_path (str, optional): The path to a stored model. If set to ``'None'``, then an ImageNet pretrained model is used. Defaults to ``'None'``.
         patch_size (int, optional): The size of the patches. Defaults to 224.
 
     Raises:
-        ValueError: If the backbone is not supported.
+        ValueError: If the backbone is not supported. Or if there are more than one key starting with ``patches_scale`` in the ``adata.obsm`` keys.
     """
 
     # Define a cuda device if available
@@ -144,26 +149,31 @@ def compute_patches_embeddings(adata: ad.AnnData, backbone: str ='densenet', mod
     adata.obsm[f'embeddings_{backbone}'] = outputs.cpu().numpy()
 
 ## Compute the patch predictions
+# TODO: Add reference to the pytorch documentation for the models
+# FIXME: Not all the backbone strings follow the same standard as pytorch models. Fix this for the consistency.
+# TODO: Update docstring after above fix
 def compute_patches_predictions(adata: ad.AnnData, backbone: str ='densenet', model_path:str="None", patch_size: int = 224) -> None:
-    """ Compute predictions for patches.
+    """ Compute model's predictions for patches.
 
-    This function computes predictions for a given backbone model and adata object. It can optionally
-    compute using a stored model in model_path or a pretrained model from pytorch. The predictions are
-    stored in adata.obsm[f'predictions_{backbone}']. The patches
-    must be stored in adata.obsm[f'patches_scale_{patch_scale}'] and must be of shape (n_patches, patch_size*patch_size*3).
+    This function computes patch predictions for a given backbone model and adata object. It can optionally compute using a stored model in ``model_path``
+    or a pretrained model from Pytorch. The predictions are stored in ``adata.obsm[f'predictions_{backbone}']``. The patches are expected to be have ``int``
+    values from ``0`` to ``255`` and all the needed transformations are performed internally. They must also be flattened and stored in
+    ``adata.obsm[f'patches_scale_{patch_scale}']`` with shape ``(n_patches, patch_size*patch_size*3)``. The ``patch_scale`` value is not important for this function.
+    The only important condition is that there is a single key starting with ``patches_scale`` in the ``adata.obsm`` keys. 
 
-    The function only modifies the AnnData object in place.
+    The output dimension of the model is internally set to the number of genes inside the ``adata`` object disregarding if we are using a pretrained pytorch model.
+
+    The function modifies the AnnData object in place.
 
     Args:
         adata (ad.AnnData): The AnnData object to process.
-        backbone (str, optional): A string specifiying the backbone model to use. Must be one of the following ['resnet', 'resnet50', 'ConvNeXt', 'EfficientNetV2', 'InceptionV3', 'MaxVit', 'MobileNetV3', 'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResnet', 'densenet', 'swin']. Defaults to 'densenet'.
-        model_path (str, optional): The path to a stored model. If set to 'None', then a pretrained model is used. Defaults to "None".
+        backbone (str, optional): A string specifying the backbone model to use. Must be one of the following ``['resnet', 'resnet50', 'ConvNeXt', 'EfficientNetV2', 'InceptionV3', 'MaxVit', 'MobileNetV3', 'ResNetXt', 'ShuffleNetV2', 'ViT', 'WideResnet', 'densenet', 'swin']``. Defaults to ``'densenet'``.
+        model_path (str, optional): The path to a stored model. If set to ``'None'``, then an ImageNet pretrained model is used. Defaults to ``'None'``.
         patch_size (int, optional): The size of the patches. Defaults to 224.
 
     Raises:
-        ValueError: If the backbone is not supported.
+        ValueError: If the backbone is not supported. Or if there are more than one key starting with ``patches_scale`` in the ``adata.obsm`` keys.
     """
-
     # Define a cuda device if available
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -255,18 +265,20 @@ def compute_patches_predictions(adata: ad.AnnData, backbone: str ='densenet', mo
     adata.obsm[f'predictions_{backbone}'] = outputs.cpu().numpy()
 
 ### Define function to get dimensionality reductions depending on the layer
+# TODO: Add references to functions used in the docstring
+# TODO: Complete the docstring with the specific attributes and elements that are added to the AnnData object
 def compute_dim_red(adata: ad.AnnData, from_layer: str) -> ad.AnnData:
-    """ Compute embeddings and clusters
+    """ Compute dimensionality reduction and clusters
 
-    Simple wrapper around sc.pp.pca, sc.pp.neighbors, sc.tl.umap and sc.tl.leiden to compute the embeddings and cluster the data.
-    Everything will be computed using the expression matrix stored in adata.layers[from_layer]. 
+    Simple wrapper around ``sc.pp.pca()``, ``sc.pp.neighbors()``, ``sc.tl.umap()`` and ``sc.tl.leiden()`` to compute the embeddings and cluster the data.
+    Everything will be computed using the expression matrix stored in ``adata.layers[from_layer]``. 
 
     Args:
-        adata (ad.AnnData): The AnnData object to transform. Must have expression values in adata.layers[from_layer].
-        from_layer (str): The key in adata.layers where the expression matrix is stored.
+        adata (ad.AnnData): The AnnData object to transform. Must have expression values in ``adata.layers[from_layer]``.
+        from_layer (str): The key in ``adata.layers`` where the expression matrix is stored.
 
     Returns:
-        ad.AnnData: The transformed AnnData object with the embeddings and clusters.
+        ad.AnnData: The transformed AnnData object with the added embeddings and clusters.
     """
     
     # Start the timer
@@ -298,15 +310,14 @@ def get_spatial_neighbors(adata: ad.AnnData, n_hops: int, hex_geometry: bool) ->
     """ Compute neighbors dictionary for an AnnData object.
     
     This function computes a neighbors dictionary for an AnnData object. The neighbors are computed according to topological distances over
-    a graph defined by the hex_geometry connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
-    and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself and are found
-    inside an n_hops neighborhood (vicinity) of the observation.
+    a graph defined by the ``hex_geometry`` connectivity. The neighbors dictionary is a dictionary where the keys are the indexes of the observations
+    and the values are lists of the indexes of the neighbors of each observation. The neighbors include the observation itself (as the first element of
+    the list) and are found inside an ``n_hops`` neighborhood (vicinity) of the observation.
 
     Args:
         adata (ad.AnnData): The AnnData object to process. Importantly it is only from a single slide. Can not be a collection of slides.
         n_hops (int): The size of the neighborhood to take into account to compute the neighbors.
-        hex_geometry (bool): Whether the graph is hexagonal or not. If True, then the graph is hexagonal. If False, then the graph is a grid. Only
-                                true for visium datasets.
+        hex_geometry (bool): ``True`` when the spots' graph is hexagonal (Visium datasets). If ``False``, then the graph is a grid.
 
     Returns:
         dict: The neighbors dictionary. The keys are the indexes of the observations and the values are lists of the indexes of the neighbors of each observation.

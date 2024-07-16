@@ -435,6 +435,7 @@ def plot_clusters(dataset: str, param_dict: dict, processed_adata: ad.AnnData, f
     The slides can be specified in param_dict['plotting_slides'] or chosen randomly.
     
     It plots:
+    
         1. The spatial distribution of the Leiden clusters in the slides.
         2. UMAP embeddings of each slide colored by Leiden clusters.
         3. General UMAP embedding of the complete dataset colored by Leiden clusters and the batch correction key.

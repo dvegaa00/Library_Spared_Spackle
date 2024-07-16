@@ -22,25 +22,40 @@ from filtering import filtering
 sys.path.remove(str(SPARED_PATH))
 
 ### Graph building functions:
+# TODO: Change the name of the layer parameter to prediction_layer
+# TODO: Add reference to the get predictions and embeddings functions in the documentation at the end of the first paragraph
 def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool) -> Tuple[dict,int]:
     """ Get neighbor graphs for a single slide.
-    This function receives an AnnData object with a single slide and for each node computes the graph in an
-    n_hops radius in a pytorch geometric format. The AnnData object must have both embeddings and predictions in the
-    adata.obsm attribute.
+
+    This function receives an AnnData object with a single slide and for each node computes the neighbor graph in an
+    ``n_hops`` radius in a pytorch geometric format. The AnnData object must have both embeddings and predictions in the
+    ``adata.obsm`` attribute.
 
     It returns a dictionary where the patch names are the keys and a pytorch geometric graph for each one as
-    values. NOTE: The first node of every graph is the center.
+    values. **NOTE:** The first node of every graph is the center.
 
     Args:
         adata (ad.AnnData): The AnnData object with the slide data.
         n_hops (int): The number of hops to compute the graph.
-        layer (str): The layer of the graph to predict. Will be added as y to the graph.
+        layer (str): The layer of the graph to predict. Will be added as ``y`` to the graph.
         hex_geometry (bool): Whether the slide has hexagonal geometry or not.
 
     Returns:
-        Tuple(dict,int)
-        dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values. The first node of every graph is the center.
-        int: Max column or row difference between the center and the neighbors. Used for positional encoding.                   
+        Tuple[dict,int]: Tuple of the following two elements:
+
+            - graph_dict: A dictionary where the patch names are the keys and pytorch geometric graph for each one as values. The first node of every graph is the center. The available attributes for each graph are:
+
+                - ``y``: The layer of the graph to predict.
+                - ``edge_index``: The edge index of the graph indicating the graph connections.
+                - ``pos``: The positions of the nodes with respect to the columns and rows of the slide.
+                - ``d_pos``: The delta positions of the nodes in the graph relative to the center node.
+                - ``embeddings``: The embeddings of the nodes in the graph.
+                - ``predictions``: The predictions of the nodes in the graph.
+                - ``used_mean``: The mean of the layer used to compute the deltas. Only present if the ``layer`` parameter contains the ``'deltas'`` substring.
+                - ``num_nodes``: The number of nodes in the graph.
+                - ``mask``: Mask indicating which of the values of ``y`` is real (``True``) or imputed (``False``).
+
+            - max_abs_d_pos: Max absolute column or row difference between the center and the neighbors. Used for positional encoding.
     """
     # Compute spatial_neighbors
     if hex_geometry:
@@ -129,7 +144,7 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
             pos=curr_pos,
             d_pos=curr_d_pos,
             embeddings=embeddings[curr_nodes_idx],
-            predictions=predictions[curr_nodes_idx] if predictions is not None else None,
+            predictions=predictions[curr_nodes_idx],
             used_mean=used_mean if used_mean is not None else None,
             num_nodes=len(curr_nodes_idx),
             mask=layers_dict['mask'][curr_nodes_idx]
@@ -145,14 +160,17 @@ def get_graphs_one_slide(adata: ad.AnnData, n_hops: int, layer: str, hex_geometr
     # Return the graph dict
     return graph_dict, max_abs_d_pos
 
+# TODO: Add reference to the get graphs_one_slide() in docstring to set the format of the graphs
+# TODO: Add reference to the github where we found the positional encodings
 def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
-    """ Get positional encodings for a neighbor graph.
-    This function adds a transformer-like positional encodings to each graph in a graph dict. It adds the positional
-    encodings under the attribute 'positional_embeddings' for each graph. 
+    """ Get positional encodings for a neighbors graph.
+
+    This function adds a transformer-like positional encodings to each graph in a graph dictionary. It adds the positional
+    encodings under the attribute ``graph.positional_embeddings`` for each graph and returns the modified dictionary. 
 
     Args:
         graph_dict (dict): A dictionary where the patch names are the keys and a pytorch geometric graphs for each one are values.
-        max_d_pos (int): Max absolute value in the relative position matrix.
+        max_d_pos (int): Max absolute column or row difference between the center and the neighbors.
 
     Returns:
         dict: The input graph dict with the information of positional encodings for each graph.
@@ -176,22 +194,37 @@ def get_sin_cos_positional_embeddings(graph_dict: dict, max_d_pos: int) -> dict:
     
     return graph_dict
 
+# TODO: Add references to the functions inside the docstring
+# TODO: Change the name of the layer parameter to prediction_layer
 def get_graphs(adata: ad.AnnData, n_hops: int, layer: str, hex_geometry: bool=True) -> dict:
     """ Get graphs for all the slides in a dataset.
-    This function wraps the get_graphs_one_slide function to get the graphs for all the slides in the dataset.
-    After computing the graph dicts for each slide it concatenates them into a single dictionary which is then used to compute
-    the positional embeddings for each graph.
 
-    For details see get_graphs_one_slide and get_sin_cos_positional_embeddings functions.
+    This function wraps the ``get_graphs_one_slide()`` and ``get_sin_cos_positional_embeddings()`` function to get the graphs
+    with positional encoding for all the slides in a slide collection.
+    After computing the graph dicts for each slide it concatenates them into a single dictionary which is then used to compute
+    the positional embeddings all the graphs.
+
+    For details see ``get_graphs_one_slide()`` and ``get_sin_cos_positional_embeddings()`` functions.
 
     Args:
         adata (ad.AnnData): The AnnData object used to build the graphs.
         n_hops (int): The number of hops to compute each graph.
-        layer (str): The layer of the graph to predict. Will be added as y to the graph.
-        hex_geometry (bool): Whether the graph is hexagonal or not. Only true for visium datasets. Defaults to True.
+        layer (str): The layer of the graph to predict. Will be added as the ``y`` attribute to the graph.
+        hex_geometry (bool): Whether the graph is hexagonal or not. Only ``True`` for Visium datasets. Defaults to ``True``.
 
     Returns:
-        dict: A dictionary where the spots' names are the keys and pytorch geometric graphs are values.
+        dict: A dictionary for the slide collection where the spots' names are the keys and pytorch geometric graphs are values. The available attributes for each graph are:
+
+            - ``y``: The layer of the graph to predict.
+            - ``edge_index``: The edge index of the graph indicating the graph connections.
+            - ``pos``: The positions of the nodes with respect to the columns and rows of the slide.
+            - ``d_pos``: The delta positions of the nodes in the graph relative to the center node.
+            - ``embeddings``: The embeddings of the nodes in the graph.
+            - ``predictions``: The predictions of the nodes in the graph.
+            - ``used_mean``: The mean of the layer used to compute the deltas. Only present if the ``layer`` parameter contains the ``'deltas'`` substring.
+            - ``num_nodes``: The number of nodes in the graph.
+            - ``mask``: Mask indicating which of the values of ``y`` is real (``True``) or imputed (``False``).
+            - ``positional_embeddings``: The positional encodings of the nodes in the graph.
     """
 
     print('Computing graphs...')
