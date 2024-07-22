@@ -58,7 +58,7 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
         model (model): imputation model with loaded weights to test perfomance.
         trainer (lightning.Trainer): pytorch lightning trainer used for model training and testing.
         best_model_path (str): path to the checkpoints that will be tested.
-        args (argparse): parser with the values necessary for data processing.
+        args (dict): dictionary with the values necessary for data processing.
         prob_tensor (torch.Tensor): vector with the masking probabilities for each gene. Shape: n_genes  
         device (torch.device): device in which tensors will be processed.
         train_split (ad.AnnData): adata of the train data split before being masked and imputed through median and trained model.
@@ -82,14 +82,14 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
         
     ## Prepare DataLoaders for testing on trained model
     train_data = ImputationDataset(train_split, args, 'train', prediction_layer, pre_masked = True)
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+    train_loader = DataLoader(train_data, batch_size=args["batch_size"], shuffle=False, pin_memory=True, drop_last=True, num_workers=args["num_workers"])
 
     val_data = ImputationDataset(val_split, args, 'val', prediction_layer, pre_masked = True)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+    val_loader = DataLoader(val_data, batch_size=args["batch_size"], shuffle=False, pin_memory=True, drop_last=True, num_workers=args["num_workers"])
     test_loader = None
     if test_split is not None:
         test_data = ImputationDataset(test_split, args, 'test', prediction_layer, pre_masked = True)
-        test_loader = DataLoader(test_data, batch_size=args.batch_size, shuffle=False, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+        test_loader = DataLoader(test_data, batch_size=args["batch_size"], shuffle=False, pin_memory=True, drop_last=True, num_workers=args["num_workers"])
 
     ## Results for trained model
     trained_model_results = get_imputation_results_from_trained_model(
@@ -108,7 +108,7 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
     return complete_imputation_results, train_split, val_split, test_split
 
 
-def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_performance, load_ckpt_path, optimizer, max_steps, args):
+def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_performance, load_ckpt_path, optimizer, max_steps, args_dict):
     # Check if test split is available
     test_data_available = True if 'test' in adata.obs['split'].unique() else False
     # Declare data splits
@@ -117,20 +117,20 @@ def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_per
     test_split = adata[adata.obs['split']=='test'] if test_data_available else None
 
     # Prepare data and create dataloaders
-    train_data = ImputationDataset(train_split, args, 'train', prediction_layer)
-    val_data = ImputationDataset(val_split, args, 'val', prediction_layer)
+    train_data = ImputationDataset(train_split, args_dict, 'train', prediction_layer)
+    val_data = ImputationDataset(val_split, args_dict, 'val', prediction_layer)
 
-    train_loader = DataLoader(train_data, batch_size=args.batch_size, shuffle=args.shuffle, pin_memory=True, drop_last=True, num_workers=args.num_workers)
-    val_loader = DataLoader(val_data, batch_size=args.batch_size, shuffle=args.shuffle, pin_memory=True, drop_last=True, num_workers=args.num_workers)
+    train_loader = DataLoader(train_data, batch_size=args_dict["batch_size"], shuffle=args_dict["shuffle"], pin_memory=True, drop_last=True, num_workers=args_dict["num_workers"])
+    val_loader = DataLoader(val_data, batch_size=args_dict["batch_size"], shuffle=args_dict["shuffle"], pin_memory=True, drop_last=True, num_workers=args_dict["num_workers"])
 
     # Get masking probability tensor for training
-    train_prob_tensor = get_mask_prob_tensor(args.masking_method, adata, args.mask_prob, args.scale_factor)
+    train_prob_tensor = get_mask_prob_tensor(args_dict["masking_method"], adata, args_dict["mask_prob"], args_dict["scale_factor"])
     # Get masking probability tensor for validating and testing with fixed method 'prob_median'
-    val_test_prob_tensor = get_mask_prob_tensor(args.masking_method, adata, args.mask_prob, args.scale_factor)
+    val_test_prob_tensor = get_mask_prob_tensor(args_dict["masking_method"], adata, args_dict["mask_prob"], args_dict["scale_factor"])
     # Declare model
     vis_features_dim = 0
     model = GeneImputationModel(
-        args=args, 
+        args=args_dict, 
         data_input_size=adata.n_vars,
         lr=lr, 
         optimizer=optimizer,
@@ -147,25 +147,21 @@ def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_per
     # Define checkpoint callback to save best model in validation
     checkpoint_callback = ModelCheckpoint(
         dirpath=save_path,
-        monitor=f'val_{args.optim_metric}', # Choose your validation metric
+        monitor=f'val_{args_dict["optim_metric"]}', # Choose your validation metric
         save_top_k=1, # Save only the best model
-        mode=max_min_dict[args.optim_metric], # Choose "max" for higher values or "min" for lower values
+        mode=max_min_dict[args_dict["optim_metric"]], # Choose "max" for higher values or "min" for lower values
     )
-
-    # Set pytorch profiler
-    #profiler = PyTorchProfiler()
 
     # Define the pytorch lightning trainer
     trainer = Trainer(
         max_steps=max_steps,
-        val_check_interval=args.val_check_interval,
-        log_every_n_steps=args.val_check_interval,
+        val_check_interval=args_dict["val_check_interval"],
+        log_every_n_steps=args_dict["val_check_interval"],
         check_val_every_n_epoch=None,
         devices=1,
         callbacks=[checkpoint_callback],
         enable_progress_bar=True,
         enable_model_summary=True,
-        #profiler=profiler
     )
 
     if train:
@@ -190,7 +186,7 @@ def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_per
                     model = model, 
                     trainer = trainer, 
                     best_model_path = best_model_path, 
-                    args = args,
+                    args = args_dict,
                     prob_tensor = val_test_prob_tensor, 
                     device = device, 
                     prediction_layer=prediction_layer,
