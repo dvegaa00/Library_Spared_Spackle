@@ -20,12 +20,16 @@ sys.path.remove(str(SPARED_PATH))
 class TransformerEncoder(torch.nn.Module):
     def __init__(self, transformer_dim, transformer_heads, transformer_encoder_layers, data_input_size, use_out_linear_layer=True):
         """
-        Generic transformer architecture (encoder + decoder) from pytorch with optional linear layers before and after the transformer.
+        Generic transformer architecture (encoder + decoder) from PyTorch with optional linear layers before and after the transformer.
 
         Args:
-            layer_list (list):  
-            act (str):          
+            transformer_dim (int): The number of expected features in the input for the transformer encoder.
+            transformer_heads (int): The number of heads in the multihead attention mechanism of the transformer encoder layer.
+            transformer_encoder_layers (int): The number of sub-encoder layers in the encoder.
+            data_input_size (int): The size of each input sample, corresponding to the number of genes in the `adata`.
+            use_out_linear_layer (bool, optional): If True, includes a linear layer after the transformer that resizes the matrix to the number of genes of interest.
         """
+
         super(TransformerEncoder, self).__init__()
 
         # Define architecture of transformer
@@ -68,6 +72,13 @@ class TransformerEncoderVisualFeatures(torch.nn.Module):
         Generic transformer encoder architecture from pytorch with optional linear layers before and after the transformer, and an
         adapter for considering visual features
          
+        Args:
+            transformer_dim (int): The number of expected features in the input for the transformer encoder.
+            transformer_heads (int): The number of heads in the multihead attention mechanism of the transformer encoder layer.
+            transformer_encoder_layers (int): The number of sub-encoder layers in the encoder.
+            n_genes (int): Number of genes in the `adata`.
+            vis_features_dim (int): The size of each input sample, corresponding to the number of genes in the `adata`.
+            include_genes (bool, optional): If True, includes a linear layer after the transformer that resizes the matrix to the number of genes of interest.
         """
         super(TransformerEncoderVisualFeatures, self).__init__()
 
@@ -106,8 +117,9 @@ class TransformerEncoderVisualFeatures(torch.nn.Module):
         Performs forward pass of the TransformerEncoder.
 
         Args:
-            input_genes (tensor): Matrix of shape (batch_size, n_spots, genes) with the gene expression of neighboring patches and a mask over some randomly selected values.
-            visual_features (tensor): Matrix of shape (batch_size, n_spots, visual_features_dim) with the visual features of neighboring patches.
+            input_data (tuple): Tuple with the input_genes and visual_features matrices.
+                - input_genes (tensor): Matrix of shape (batch_size, n_spots, genes) with the gene expression of neighboring patches and a mask over some randomly selected values.
+                - visual_features (tensor): Matrix of shape (batch_size, n_spots, visual_features_dim) with the visual features of neighboring patches.
             
         Returns:
             tensor: A tensor matrix where dimensions are (batch_size, n_spots, genes). Gene expression matrix with missing values predicted.
@@ -131,13 +143,28 @@ class GeneImputationModel(L.LightningModule):
     def __init__(
         self,
         args,
-        data_input_size, # 128 (or number of genes) if input shape is [batch, 7 (n_spots), 128]
+        data_input_size, # 128 (or number of genes) if input shape is [batch, n_spots, 128]
         lr,
         optimizer,
-        train_mask_prob_tensor = None, # None in case the model is used for inference and doesn't require random masking probabilities
+        train_mask_prob_tensor = None, 
         val_test_mask_prob_tensor = None,
         vis_features_dim = 0
         ):
+        """
+        This class builds the SpaCKLE model for gene data completion. The model is trained, validated, and tested using PyTorch Lightning
+        and is automatically logged in Weights and Biases.
+
+        Args:
+            args (dict): A dictionary with the values needed for building the model's architecture. For more information on the required keys, refer to the 
+                         documentation of the function `get_args_dict()` in `spared.spackle.utils`.
+            data_input_size (int): The number of genes in the dataset, determining the expected shape of the transformer's input.
+            lr (float): The learning rate for training the model.
+            optimizer (str): The name of the optimizer selected for the training process. Suggested: "Adam".
+            train_mask_prob_tensor (torch.Tensor, optional): A tensor of shape (number of genes) with the probabilities of each gene being randomly masked during training. Default is None for inference, where random masking probabilities are not required.
+            val_test_mask_prob_tensor (torch.Tensor, optional): A tensor of shape (number of genes) with the probabilities of each gene being randomly masked during validation/testing. Default is None for inference, where random masking probabilities are not required.
+            vis_features_dim (int): The dimension of the visual features.
+        """
+
         super().__init__()
         self.args = args
         self.train_mask_prob_tensor = train_mask_prob_tensor
@@ -182,6 +209,15 @@ class GeneImputationModel(L.LightningModule):
             )
 
     def forward(self, input_data):
+        """
+        Performs forward pass of the Gene Imputation Model.
+
+        Args:
+            input_data (tensor): Matrix of shape (batch_size, n_spots, genes) with the gene expression of neighboring patches and a mask over some randomly selected values.
+            
+        Returns:
+            tensor: A tensor matrix where dimensions are (batch_size, n_spots, genes). Gene expression matrix with missing values predicted.
+        """
         model_output = self.model(input_data)
         return model_output
 
@@ -330,4 +366,4 @@ class GeneImputationModel(L.LightningModule):
             optimizer = getattr(torch.optim, self.optimizer)(self.parameters(), lr=self.lr)
 
         return optimizer
-    
+  

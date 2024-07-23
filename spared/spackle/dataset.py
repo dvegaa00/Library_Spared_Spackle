@@ -4,21 +4,21 @@ from spackle.utils import *
 
 class ImputationDataset(torch.utils.data.Dataset):
     def __init__(self, adata, args_dict, split_name, prediction_layer, pre_masked = False):
-        # TODO: update this description (this class doesn't download the data)
         """
-        This is a spatial data class that contains all the information about the dataset. It will call a reader class depending on the type
-        of dataset (by now only visium and STNet are supported). The reader class will download the data and read it into an AnnData collection
-        object. Then the dataset class will filter, process and plot quality control graphs for the dataset. The processed dataset will be stored
-        for rapid access in the future.
+        This class prepares the `adata` for processing with SpaCKLE.
 
         Args:
-            adata (ad.AnnData): An anndata object with the data of the entire dataset.
-            args_dict (dict): dictionary with the values needed for data processing.
-            split_name (str): name of the data split being processed. Useful for identifying which data split the model is being tested on.
-            pre_masked (str, optional): specifies if the data incoming has already been masked for testing purposes. 
-                    * If True, __getitem__() will return the random mask that was used to mask the original expression 
-                    values instead of the median imputation mask, as well as the gt expressions and the masked data.
+            adata (ad.AnnData): An AnnData object containing the entire dataset.
+            args_dict (dict): A dictionary with the values needed for data processing. For more information on the required keys, refer to the 
+                              documentation of the function `get_args_dict()` in `spared.spackle.utils`.
+            split_name (str): The name of the data split being processed. This is useful for identifying which data split the model is being tested on.
+            prediction_layer (str): The name of the layer that contains the gene expression of the spots. This layer will be randomly masked and predicted on 
+                                    to train the model, or it has missing data that will be completed with SpaCKLE.
+            pre_masked (str, optional): Specifies if the incoming data has already been masked for testing purposes. 
+                * If True, `__getitem__()` will return the random mask that was used to mask the original expression 
+                values instead of the median imputation mask, as well as the ground truth expressions and the masked data.
         """
+
 
         self.adata = adata
         self.pred_layer = prediction_layer
@@ -28,7 +28,7 @@ class ImputationDataset(torch.utils.data.Dataset):
         self.img_enc_backbone = args_dict["img_backbone"]
         # Get original expression matrix based on selected prediction layer.
         self.expression_mtx = torch.tensor(self.adata.layers[self.pred_layer])
-        # Retreive the mask from the adata, where "False" corresponds to the values that contain the median as expression value.
+        # Retrieve the mask from the adata, where "False" corresponds to the values that contain the median as expression value.
         self.median_imp_mask = torch.tensor(self.adata.layers['mask'])
 
         # Get the masked expression matrix expression and random mask if data has been pre-masked
@@ -44,13 +44,18 @@ class ImputationDataset(torch.utils.data.Dataset):
 
     def get_adjacency(self, num_neighs = 6):
         """
-        Function description
+        This function creates the adjacency matrix that indicates which are the num_neighs closest spots to each spot in the slide.
         """
         # Get num_neighs nearest neighbors for each spot
         sq.gr.spatial_neighbors(self.adata, coord_type='generic', n_neighs=num_neighs)
         self.adj_mat = torch.tensor(self.adata.obsp['spatial_connectivities'].todense())
 
     def build_neighborhood_from_distance(self, idx):
+        """
+        This function gets the closest n neighbors of the spot in index idx and returns the final neighborhood gene expression matrix,
+        as well as the mask that indicates which elements are missing in the original data. If the datasets has already been randomly 
+        masked, it will also return the corresponding matrix.
+        """
         # Get gt expression for idx spot and its nn
         spot_exp = self.expression_mtx[idx].unsqueeze(dim=0)
         nn_exp = self.expression_mtx[self.adj_mat[:,idx]==1.]
@@ -88,7 +93,7 @@ class ImputationDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         item = {'split_name': self.split_name}
-        # Get expression and median imputation mask of neighborhoods
+
         if not self.pre_masked:
             item['exp_matrix_gt'], item['real_missing'], item['visual_features'] = self.build_neighborhood_from_distance(idx)
 

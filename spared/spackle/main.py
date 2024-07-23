@@ -23,21 +23,20 @@ sys.path.remove(str(SPARED_PATH))
 ## Set of auxiliary functions for model test and comparison
 def get_imputation_results_from_trained_model(trainer, model, best_model_path, train_loader, val_loader, test_loader = None):
     """
-    This function tests the incoming model in all data splits available using pytorch lightning.
+    This function tests the incoming SpaCKLE completion model in all data splits available using PyTorch Lightning.
 
     Args:
-        trainer (lightning.Trainer): pytorch lightning trainer used for model training and testing.
-        # FIXME: model debe ser de tipo "GeneImputationModel"? Especificar
-        model (model): imputation model with loaded weights to test perfomance.
-        best_model_path (str): path to the checkpoints that will be tested.
+        trainer (lightning.Trainer): PyTorch lightning trainer used for model training and testing.
+        model (GeneImputationModel): Imputation model with loaded weights to test perfomance.
+        best_model_path (str): Path to the checkpoints that will be tested.
         train_loader (torch.DataLoader): DataLoader of the train data split. 
         val_loader (torch.DataLoader): DataLoader of the val data split. 
-        test_loader (torch.DataLoader, optional): if available, DataLoader of the test data split. 
+        test_loader (torch.DataLoader, optional): If available, DataLoader of the test data split. 
 
     Return:
         train_model_imputation_metrics (dict): Evaluation metrics when testing the model on train split.
         val_model_imputation_metrics (dict): Evaluation metrics when testing the model on val split.
-        test_model_imputation_metrics (dict): returned if test data is provided, else is None. Evaluation metrics when testing the model on test split.
+        test_model_imputation_metrics (dict): Returned if test data is provided, else is None. Evaluation metrics when testing the model on test split.
     """
     ## Results for imputation model
     train_model_imputation_metrics = trainer.test(model = model, dataloaders = train_loader, ckpt_path = best_model_path)[0]
@@ -52,7 +51,7 @@ def get_imputation_results_from_trained_model(trainer, model, best_model_path, t
 
 def get_complete_imputation_results(model, trainer, best_model_path, args, prob_tensor, device, prediction_layer, train_split, val_split, test_split = None):
     """
-    This function gets the evaluation metrics of both the median filter and the trained model in all data splits available.
+    This function gets the evaluation metrics of both the median filter and the trained model in all data splits available for comparison of both completion methods.
 
     Args:
         model (model): imputation model with loaded weights to test perfomance.
@@ -108,7 +107,25 @@ def get_complete_imputation_results(model, trainer, best_model_path, args, prob_
     return complete_imputation_results, train_split, val_split, test_split
 
 
-def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_performance, load_ckpt_path, optimizer, max_steps, args_dict):
+def train_spackle(adata, device, save_path, prediction_layer, lr, train, get_performance, load_ckpt_path, args_dict, optimizer = "Adam", max_steps = 10000):
+    """
+    This function declares, trains and tests a new SpaCKLE model. The best model is saved in save_path. Alternatively, this function can receive the path to pretrained 
+    checkpoints and only test the model to analyze the performance of SpaCKLE.
+
+    Args:
+        adata (ad.AnnData): Complete adata (with inner train, val, and test splits in `adata.obs`).
+        device (torch.device): Device in which tensors will be processed.
+        save_path (str): Directory to save the model file.
+        prediction_layer (str): Layer in adata.layers where the gene expression matrix that will be completed is located. This matrix corresponds to the ground truth when training.
+        lr (float): The learning rate for training the model.
+        train (bool): If True, a new SpaCKLE model will be trained and tested, otherwise, the function will only test the pretrained model found in `load_ckpt_path`.
+        get_performance (bool): If True, the function will calculate the final evaluation metrics and save them in a txt file in save_path.
+        load_ckpt_path (str): Path to the checkpoints of a pretrained SpaCKLE model. This path should lead directly to the .ckpt file.
+        args_dict (dict): A dictionary with the values needed for processing the data and building the model's architecture. For more information on the required keys, refer to the 
+                          documentation of the function `get_args_dict()` in `spared.spackle.utils`.
+        optimizer (str, optional): The name of the optimizer selected for the training process. Default = "Adam".
+        max_steps (int, optional): Stop training after this number of steps. Default = 10000
+    """
     # Check if test split is available
     test_data_available = True if 'test' in adata.obs['split'].unique() else False
     # Declare data splits

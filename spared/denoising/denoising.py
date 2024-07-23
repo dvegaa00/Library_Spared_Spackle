@@ -289,7 +289,6 @@ def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: 
         load_ckpt_path = glob.glob(os.path.join(save_path, '*.ckpt'))[0]
 
     else:
-
         assert os.path.exists(load_ckpt_path), "load_ckpts_path not found. Please use train = True if you do not have the checkpoints of a trained SpaCKLE model and its corresponding script_params.json file."
         
         save_path = os.path.dirname(load_ckpt_path)
@@ -303,7 +302,7 @@ def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: 
             if saved_script_params['transformer_dim'] != adata.n_vars:
                 warnings.warn("The architecture of the model you want to load may not be compatible with the shape of the data.")
 
-
+    ## Run SpaCKLE model to complete gene data that is missing in adata either with a recently trained model or using the checkpoints of a pretrained model, depending on the parameters selected.
     # Declare model
     vis_features_dim = 0
     model = GeneImputationModel(
