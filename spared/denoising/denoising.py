@@ -192,11 +192,32 @@ def median_cleaner(collection: ad.AnnData, from_layer: str, to_layer: str, n_hop
 
 #Replicate SpaCKLE's results
 def spackle_cleaner_experiment(adata: ad.AnnData, dataset: str, from_layer: str, device, args_dict = None, lr = 1e-3, train = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
-    # TODO: [PC] add in the documentation that the adata must have data splits in adata.obs['split'] and the values should be 'train', 'val', and (optional) 'test'
-    # TODO: [PC] For documentation: 
-            # "This function's purpose is solely to reproduce the results presented in SpaCKLE's paper"
-            # load_ckpt_path example: /home/pcardenasg/spared_imputation/imput_results/vicari_mouse_brain/2024-02-28-07-02-31/epoch=101-step=9370.ckpt {should end with the ckpt file and the ckpts file must be inside a directory that also contains script_params.json}
+    """This function's purpose is solely to reproduce the results presented in SpaCKLE's paper.
 
+    Function that cleans noise (completes missing data) with a SpaCKLE model that can be either trained or loaded as a pre-trained model from the original published checkpoints.
+    The data will be taken from ``adata.layers[from_layer]`` and the results will be stored in ``adata.layers[to_layer]``. If training a new SpaCKLE
+    model, it will be saved in the path ``imput_results/[dataset_name]/[run_date]``.
+
+    Args:
+        adata (ad.AnnData): The AnnData collection to process. The adata must have pre-determined data splits in ``adata.obs['split']`` and the values should be ``train``, ``val``, and (optional) ``test``.
+        dataset (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
+        from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
+        to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
+        device (torch.device): device in which tensors will be processed.
+        args_dict (dict): A dictionary with the values needed for processing the data and building the model's architecture. For more information on the required keys, refer to the 
+                          documentation of the function ``get_args_dict()`` in `spared.spackle.utils`.
+        lr (float): The learning rate for training the model.
+        train (bool): If True, a new SpaCKLE model will be trained and tested, otherwise, the function will only test the pretrained model found in ``load_ckpt_path``.
+        get_performance (bool): If True, the function will calculate the final evaluation metrics of the model and save them in a txt file in save_path.
+        load_ckpt_path (str): Path to the checkpoints of a pretrained SpaCKLE model. This path should lead directly to the .ckpt file.
+        optimizer (str, optional): The name of the optimizer selected for the training process. Default = "Adam".
+        max_steps (int, optional): Stop training after this number of steps. Default = 1000.
+
+    Returns:
+        adata (ad.AnnData): The input AnnData collection with the added cleaned layer in ``adata.layers[to_layer]``.
+        load_ckpt_path (str): Path to the checkpoints of the trained SpaCKLE model.
+    """
+    
     # Get datetime
     run_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 
@@ -248,11 +269,32 @@ def spackle_cleaner_experiment(adata: ad.AnnData, dataset: str, from_layer: str,
 
 #clean noise con spackle
 def spackle_cleaner(adata: ad.AnnData, dataset: str, from_layer: str, to_layer: str, device, args_dict = None, lr = 1e-3, train = True, get_performance_metrics = True, load_ckpt_path = "", optimizer = "Adam", max_steps = 1000) -> ad.AnnData:
-    # TODO: [PC] add in the documentation that the adata must have data splits in adata.obs['split'] and the values should be 'train', 'val', and (optional) 'test'
-    # TODO: [PC] For documentation: 
-            # "This function's purpose is solely to reproduce the results presented in SpaCKLE's paper"
-            # load_ckpt_path example: /home/pcardenasg/spared_imputation/imput_results/vicari_mouse_brain/2024-02-28-07-02-31/epoch=101-step=9370.ckpt {should end with the ckpt file and the ckpts file must be inside a directory that also contains script_params.json}
+    """Remove noise with SpaCKLE.
 
+    Function that cleans noise (completes missing data) with a SpaCKLE model that can be either trained or loaded as a pre-trained model.
+    The data will be taken from ``adata.layers[from_layer]`` and the results will be stored in ``adata.layers[to_layer]``. If training a new SpaCKLE
+    model, it will be saved in the path ``imput_results/[dataset_name]/[run_date]``.
+
+    Args:
+        adata (ad.AnnData): The AnnData collection to process. The adata must have pre-determined data splits in ``adata.obs['split']`` and the values should be ``train``, ``val``, and (optional) ``test``.
+        dataset (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
+        from_layer (str): The layer to compute the adaptive median filter from. Where to clean the noise from.
+        to_layer (str): The layer to store the results of the adaptive median filter. Where to store the cleaned data.
+        device (torch.device): device in which tensors will be processed.
+        args_dict (dict): A dictionary with the values needed for processing the data and building the model's architecture. For more information on the required keys, refer to the 
+                          documentation of the function ``get_args_dict()`` in `spared.spackle.utils`.
+        lr (float): The learning rate for training the model.
+        train (bool): If True, a new SpaCKLE model will be trained and tested, otherwise, the function will only test the pretrained model found in ``load_ckpt_path``.
+        get_performance (bool): If True, the function will calculate the final evaluation metrics of the model and save them in a txt file in save_path.
+        load_ckpt_path (str): Path to the checkpoints of a pretrained SpaCKLE model. This path should lead directly to the .ckpt file.
+        optimizer (str, optional): The name of the optimizer selected for the training process. Default = "Adam".
+        max_steps (int, optional): Stop training after this number of steps. Default = 1000.
+
+    Returns:
+        adata (ad.AnnData): The input AnnData collection with the added cleaned layer in ``adata.layers[to_layer]``.
+        load_ckpt_path (str): Path to the checkpoints of the trained SpaCKLE model.
+    """
+    
     # Get datetime
     run_date = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
 

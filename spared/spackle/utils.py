@@ -12,10 +12,10 @@ import sys
 #from metrics import get_metrics
 from sklearn.preprocessing import StandardScaler
 
-# El path a spared es ahora diferente
+# Path to SpaRED
 SPARED_PATH = pathlib.Path(__file__).resolve().parent.parent
 
-# Agregar el directorio padre al sys.path para los imports
+# Add spared path for imports
 sys.path.append(str(SPARED_PATH))
 # Import im_encoder.py file
 from metrics.metrics import get_metrics
@@ -37,7 +37,17 @@ def seed_everything(seed: int):
 
 ### Function to build or complete dictionary of basic arguments for spackle to work
 def get_args_dict(args_dict: dict = None):
-    
+    """
+    This function prepares the dictionary that contains the arguments necessary for using SpaCKLE. If the user inputs the arguments dictionary,
+    this function will check that the dictionary has all the mandatory keys. The values in the default dictionary correspond to those used as default
+    when training SpaCKLE in the SpaRED research paper, and the source code contains the description of each key and help to determine new values if needed.
+
+    Args:
+        args_dict (dict): A dictionary with the values needed for processing the data and building the model's architecture. 
+
+    Return:
+        args_dict (dict): The dictionary with the default arguments values that were missing in the initial args_dict.
+    """
     default_args = {
             # Imputation model training and test parameters
             "momentum": 0.9,                         # help = Momentum to use in the optimizer
